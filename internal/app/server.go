@@ -5,6 +5,9 @@ import (
     "math/rand"
     "net/http"
     "sync" // читать тут https://pkg.go.dev/sync
+
+    "github.com/go-chi/chi/v5"
+    "github.com/go-chi/chi/v5/middleware"
 )
 
 // URLShortener тип данных сопоставления данных id - ссылка
@@ -56,47 +59,43 @@ func generateID() string {
     return string(id)
 }
 
-// Server структура данных для хранения URLShortener
-type Server struct {
-    shortener *URLShortener
+// NewRouter - создаем роутер chi
+func NewRouter() http.Handler {
+    shortener := NewURLShortener()
+    r := chi.NewRouter()
+
+    // есть какие-то встроенные мидлвари, позовем их
+    r.Use(middleware.Logger)
+    r.Use(middleware.Recoverer)
+
+    r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+        handlePost(w, r, shortener)
+    })
+
+    r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
+        handleGet(w, r, shortener)
+    })
+
+    return r
 }
 
-// NewServer просто создадим новый сервер
-func NewServer() *Server {
-    return &Server{
-        shortener: NewURLShortener(),
-    }
-}
-
-// ServeHTTP просто свитч, вместо варей
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    switch r.Method {
-    		case http.MethodPost:
-        		s.handlePost(w, r)
-    		case http.MethodGet:
-        		s.handleGet(w, r)
-    		default:
-        		http.Error(w, "Unsupported request method", http.StatusBadRequest)
-    }
-}
-
-// handlePost - хендлер пост запросов
-func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
+// handlePost - просто функция, для пост запроса
+func handlePost(w http.ResponseWriter, r *http.Request, shortener *URLShortener) {
     url, err := io.ReadAll(r.Body)
     if err != nil || len(url) == 0 {
         http.Error(w, "Invalid request body", http.StatusBadRequest)
         return
     }
-    id := s.shortener.Shorten(string(url))
+    id := shortener.Shorten(string(url))
     shortURL := "http://localhost:8080/" + id
     w.WriteHeader(http.StatusCreated)
     w.Write([]byte(shortURL))
 }
 
-// handleGet - хендлер гет запросов
-func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
-    id := r.URL.Path[1:]
-    if originalURL, ok := s.shortener.Retrieve(id); ok {
+// handlePost - просто функция, для гет запроса
+func handleGet(w http.ResponseWriter, r *http.Request, shortener *URLShortener) {
+    id := chi.URLParam(r, "id")
+    if originalURL, ok := shortener.Retrieve(id); ok {
         http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
     } else {
         http.Error(w, "URL not found", http.StatusBadRequest)
