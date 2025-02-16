@@ -9,6 +9,8 @@ import (
     "github.com/go-chi/chi/v5"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
+
+    "github.com/mkukarin01/snort/internal/config"
 )
 
 // тесты разделены по слоям - логика работы с ссылками (БЛ), мидлвари роутера и другая его шелуха
@@ -36,7 +38,8 @@ func TestURLShortener_RetrieveNonExistent(t *testing.T) {
 // Смотри префикс теста - TestRouter - как работает роутер
 // проверил пост запрос, чет кривовато наверно
 func TestRouter_HandlePost(t *testing.T) {
-    router := NewRouter()
+    cfg := createCfg()
+    router := NewRouter(cfg)
 
     req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://ya.ru"))
     req.Header.Set("Content-Type", "text/plain")
@@ -73,7 +76,8 @@ func TestRouter_HandleGet(t *testing.T) {
 
 // проверил гет на несуществующую ссылку
 func TestRouter_HandleGet_NonExistent(t *testing.T) {
-    router := NewRouter()
+    cfg := createCfg()
+    router := NewRouter(cfg)
 
     req := httptest.NewRequest(http.MethodGet, "/nonexistent", nil)
     w := httptest.NewRecorder()
@@ -89,14 +93,34 @@ func TestRouter_HandleGet_NonExistent(t *testing.T) {
 // создадим тестовый маршрутизатор с URLShortener-ом.
 func createTestRouter(shortener *URLShortener) chi.Router {
     r := chi.NewRouter()
+    cfg := createCfg()
 
     r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-        handlePost(w, r, shortener)
+        handlePost(w, r, shortener, cfg.BaseURL)
     })
 
-    r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
-        handleGet(w, r, shortener)
-    })
+    if (cfg.BasePath == "") {
+        r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
+            handleGet(w, r, shortener)
+        })
+    } else {
+        r.Route(cfg.BasePath, func(r chi.Router) {
+            r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
+                handleGet(w, r, shortener)
+            })
+        })
+    }
 
     return r
+}
+
+func createCfg() *config.Config {
+    cfg := &config.Config{
+        Port: "8080",
+        BaseDomain: "localhost",
+        BasePath: "",
+        Address: "localhost:8080",
+        BaseURL: "http://localhost:8080",
+    }
+    return cfg;
 }
