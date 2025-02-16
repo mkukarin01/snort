@@ -1,0 +1,13 @@
+{
+    "_type": "request",
+    "method": "POST",
+    "body": {
+        "mimeType": "No Body",
+        "text": ""
+    },
+    "url": "http://localhost:8080",
+    "sortOrder": 3,
+    "parameters": [],
+    "pathParameters": [],
+    "headers": []
+}

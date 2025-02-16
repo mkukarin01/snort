@@ -1,0 +1,18 @@
+{
+    "_type": "request",
+    "method": "POST",
+    "body": {
+        "mimeType": "text/plain",
+        "text": "https://google.com"
+    },
+    "url": "http://localhost:8080",
+    "sortOrder": 2,
+    "parameters": [],
+    "pathParameters": [],
+    "headers": [
+        {
+            "name": "Content-Type",
+            "value": "text/plain"
+        }
+    ]
+}
