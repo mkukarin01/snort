@@ -8,6 +8,7 @@ import (
 
     "github.com/go-chi/chi/v5"
     "github.com/go-chi/chi/v5/middleware"
+    "github.com/mkukarin01/snort/internal/config"
 )
 
 // URLShortener тип данных сопоставления данных id - ссылка
@@ -48,7 +49,7 @@ func generateID() string {
     const length = 8
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-		// слайс байтов в длину length === 8
+    // слайс байтов в длину length === 8
     id := make([]byte, length)
     for i := range id {
         // берем случайный индекс 
@@ -60,7 +61,7 @@ func generateID() string {
 }
 
 // NewRouter - создаем роутер chi
-func NewRouter() http.Handler {
+func NewRouter(cfg *config.Config) http.Handler {
     shortener := NewURLShortener()
     r := chi.NewRouter()
 
@@ -69,25 +70,34 @@ func NewRouter() http.Handler {
     r.Use(middleware.Recoverer)
 
     r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-        handlePost(w, r, shortener)
+        handlePost(w, r, shortener, cfg.BaseURL)
     })
 
-    r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
-        handleGet(w, r, shortener)
-    })
+    // работаем с префиксом, если он есть
+    if (cfg.BasePath == "") {
+        r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
+            handleGet(w, r, shortener)
+        })
+    } else {
+        r.Route(cfg.BasePath, func(r chi.Router) {
+            r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
+                handleGet(w, r, shortener)
+            })
+        })
+    }
 
     return r
 }
 
 // handlePost - просто функция, для пост запроса
-func handlePost(w http.ResponseWriter, r *http.Request, shortener *URLShortener) {
+func handlePost(w http.ResponseWriter, r *http.Request, shortener *URLShortener, baseURL string) {
     url, err := io.ReadAll(r.Body)
     if err != nil || len(url) == 0 {
         http.Error(w, "Invalid request body", http.StatusBadRequest)
         return
     }
     id := shortener.Shorten(string(url))
-    shortURL := "http://localhost:8080/" + id
+    shortURL := baseURL + "/" + id
     w.WriteHeader(http.StatusCreated)
     w.Write([]byte(shortURL))
 }
