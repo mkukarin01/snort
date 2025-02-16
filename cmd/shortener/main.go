@@ -8,6 +8,6 @@ import (
 )
 
 func main() {
-    srv := app.NewServer()
-    log.Fatal(http.ListenAndServe(":8080", srv))
+    r := app.NewRouter()
+    log.Fatal(http.ListenAndServe(":8080", r))
 }

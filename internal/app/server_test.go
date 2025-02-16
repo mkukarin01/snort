@@ -6,11 +6,12 @@ import (
     "strings"
     "testing"
 
+    "github.com/go-chi/chi/v5"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
 )
 
-// тесты разделены по слоям - логика работы с ссылками (БЛ), мидлвари сервака и другая его шелуха
+// тесты разделены по слоям - логика работы с ссылками (БЛ), мидлвари роутера и другая его шелуха
 // Смотри префикс теста - TestURLShortener - логика сокращения
 // проверил что сократилось и получилось тоже самое
 func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
@@ -32,19 +33,18 @@ func TestURLShortener_RetrieveNonExistent(t *testing.T) {
     assert.False(t, ok)
 }
 
-// Смотри префикс теста - TestServer - как работает сервак
+// Смотри префикс теста - TestRouter - как работает роутер
 // проверил пост запрос, чет кривовато наверно
-func TestServer_HandlePost(t *testing.T) {
-    server := NewServer()
+func TestRouter_HandlePost(t *testing.T) {
+    router := NewRouter()
 
     req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("https://ya.ru"))
     req.Header.Set("Content-Type", "text/plain")
     w := httptest.NewRecorder()
 
-    server.ServeHTTP(w, req)
+    router.ServeHTTP(w, req)
 
     res := w.Result()
-	// https://habr.com/ru/companies/otus/articles/833702/ отложтл закрытие на чтение, даже в случае ошибки все равно закроемся
     defer res.Body.Close()
 
     require.Equal(t, http.StatusCreated, res.StatusCode)
@@ -52,16 +52,17 @@ func TestServer_HandlePost(t *testing.T) {
 }
 
 // проверил гет
-func TestServer_HandleGet(t *testing.T) {
-    server := NewServer()
-
-    id := server.shortener.Shorten("https://ya.ru")
+func TestRouter_HandleGet(t *testing.T) {
+    shortener := NewURLShortener()
+    id := shortener.Shorten("https://ya.ru")
     url := "/" + id
+
+    router := createTestRouter(shortener)
 
     req := httptest.NewRequest(http.MethodGet, url, nil)
     w := httptest.NewRecorder()
 
-    server.ServeHTTP(w, req)
+    router.ServeHTTP(w, req)
 
     res := w.Result()
     defer res.Body.Close()
@@ -71,16 +72,31 @@ func TestServer_HandleGet(t *testing.T) {
 }
 
 // проверил гет на несуществующую ссылку
-func TestServer_HandleGet_NonExistent(t *testing.T) {
-    server := NewServer()
+func TestRouter_HandleGet_NonExistent(t *testing.T) {
+    router := NewRouter()
 
     req := httptest.NewRequest(http.MethodGet, "/nonexistent", nil)
     w := httptest.NewRecorder()
 
-    server.ServeHTTP(w, req)
+    router.ServeHTTP(w, req)
 
     res := w.Result()
     defer res.Body.Close()
 
     require.Equal(t, http.StatusBadRequest, res.StatusCode)
+}
+
+// создадим тестовый маршрутизатор с URLShortener-ом.
+func createTestRouter(shortener *URLShortener) chi.Router {
+    r := chi.NewRouter()
+
+    r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+        handlePost(w, r, shortener)
+    })
+
+    r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
+        handleGet(w, r, shortener)
+    })
+
+    return r
 }
