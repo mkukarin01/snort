@@ -26,6 +26,14 @@ func NewConfig() *Config {
 
    flag.Parse()
 
+   if (strings.HasPrefix(cfg.Port, "localhost:")) {
+      after, found := strings.CutPrefix(cfg.Port, "localhost:")
+
+      if (found) {
+         cfg.Port = after
+      }
+   }
+
    cfg.Address = fmt.Sprintf("%s:%s", cfg.BaseDomain, cfg.Port)
    if cfg.BasePath != "" && !strings.HasPrefix(cfg.BasePath, "/") {
       cfg.BasePath = "/" + cfg.BasePath
