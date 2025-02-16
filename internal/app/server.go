@@ -9,8 +9,8 @@ import (
 
 // URLShortener тип данных сопоставления данных id - ссылка
 type URLShortener struct {
-		// https://pkg.go.dev/sync#RWMutex
-		// хочу чтобы можно было кем угодно читать, но писать одному пока, создал и переиспользуешь на протяжении работы аппы
+    // https://pkg.go.dev/sync#RWMutex
+    // хочу чтобы можно было кем угодно читать, но писать одному пока, создал и переиспользуешь на протяжении работы аппы
     sync.RWMutex
     store map[string]string
 }
