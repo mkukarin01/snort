@@ -75,11 +75,9 @@ func NewConfig() *Config {
 		cfg.BasePath = "/" + cfg.BasePath
 	}
 
-	// прост записали все в конфиг обратно для отладки
+	// прост записали все в конфиг обратно
 	cfg.Address = fmt.Sprintf("%s:%s", cfg.BaseDomain, cfg.Port)
 	cfg.BaseURL = fmt.Sprintf("http://%s%s", cfg.Address, cfg.BasePath)
-
-	fmt.Printf("%+v\n", cfg)
 
 	return cfg
 }
