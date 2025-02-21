@@ -24,3 +24,6 @@ vendor/
 
 # docs
 docs/
+
+# ifnore os files
+.DS_store

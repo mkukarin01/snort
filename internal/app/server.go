@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/mkukarin01/snort/internal/config"
+	"github.com/mkukarin01/snort/internal/logger"
 )
 
 // URLShortener тип данных сопоставления данных id - ссылка
@@ -66,8 +67,11 @@ func NewRouter(cfg *config.Config) http.Handler {
 	shortener := NewURLShortener()
 	r := chi.NewRouter()
 
+	// инициализуем собственный логгер синглтончик => мидлварь
+	log := logger.InitLogger()
+	r.Use(LoggingMiddleware(log))
+
 	// есть какие-то встроенные мидлвари, позовем их
-	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	r.Post("/", func(w http.ResponseWriter, r *http.Request) {
