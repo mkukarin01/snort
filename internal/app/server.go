@@ -4,6 +4,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"sync" // читать тут https://pkg.go.dev/sync
 
 	"github.com/go-chi/chi/v5"
@@ -91,13 +92,29 @@ func NewRouter(cfg *config.Config) http.Handler {
 
 // handlePost - просто функция, для пост запроса
 func handlePost(w http.ResponseWriter, r *http.Request, shortener *URLShortener, baseURL string) {
-	url, err := io.ReadAll(r.Body)
-	if err != nil || len(url) == 0 {
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil || len(bodyBytes) == 0 {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	id := shortener.Shorten(string(url))
+
+	// создам переменную, чтобы потом к ней обращаться несколько раз
+	urlStr := string(bodyBytes)
+
+	parsedURL, err := url.ParseRequestURI(urlStr)
+	if err != nil {
+		http.Error(w, "Invalid URL provided", http.StatusBadRequest)
+		return
+	}
+
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		http.Error(w, "Invalid URL: missing scheme or host", http.StatusBadRequest)
+		return
+	}
+
+	id := shortener.Shorten(urlStr)
 	shortURL := baseURL + "/" + id
+
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortURL))
 }
