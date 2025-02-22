@@ -4,10 +4,11 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	ChiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/mkukarin01/snort/internal/config"
 	"github.com/mkukarin01/snort/internal/handlers"
 	"github.com/mkukarin01/snort/internal/logger"
+	InternalMiddleware "github.com/mkukarin01/snort/internal/middleware"
 	"github.com/mkukarin01/snort/internal/service"
 )
 
@@ -19,9 +20,12 @@ func NewRouter(cfg *config.Config) http.Handler {
 	// инициализуем собственный логгер синглтончик => мидлварь
 	log := logger.InitLogger()
 	r.Use(logger.LoggingMiddleware(log))
+	// подсунем gzip реализацию
+	r.Use(InternalMiddleware.GzipDecompressionMiddleware) // для входящего трафика
+	r.Use(InternalMiddleware.GzipMiddleware)              // для исходящего
 
 	// есть какие-то встроенные мидлвари, позовем их
-	r.Use(middleware.Recoverer)
+	r.Use(ChiMiddleware.Recoverer)
 
 	r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandleShorten(w, r, shortener, cfg.BaseURL)
