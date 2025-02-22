@@ -47,6 +47,7 @@ func TestRouter_Routes(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		res := w.Result()
+		defer res.Body.Close()
 		require.NotEqual(t, http.StatusNotFound, res.StatusCode, "Expected route to be registered: %s %s", tc.method, tc.path)
 	}
 }
