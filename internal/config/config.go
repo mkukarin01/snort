@@ -55,9 +55,9 @@ func NewConfig() *Config {
 		if port == "" {
 			fmt.Println("Port is empty. fallback to default")
 			cfg.Port = "8080"
+		} else {
+			cfg.Port = port
 		}
-
-		cfg.Port = port
 	}
 
 	// приводим basePath в порядок
