@@ -105,8 +105,7 @@ func TestLoadFilePermissions(t *testing.T) {
 	assert.NoError(t, err, "Ошибка при записи JSON в файл")
 	file.Close()
 
-	// Запрещаем чтение
-	err = os.Chmod(testFile, 0000) // возможно все таки нужно подсунуть 0222 aka -w-w-w-
+	err = os.Chmod(testFile, 0444) // возможно все таки нужно подсунуть 0222 aka -w-w-w-
 	assert.NoError(t, err, "Ошибка при изменении прав доступа к файлу")
 
 	us := NewURLShortener(testFile)
