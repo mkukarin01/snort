@@ -105,7 +105,7 @@ func TestLoadFilePermissions(t *testing.T) {
 	assert.NoError(t, err)
 	file.Close()
 
-	err = os.Chmod(testFile, 0000)
+	err = os.Chmod(testFile, 0222) // -w-w-w-
 	assert.NoError(t, err)
 
 	us := NewURLShortener(testFile)
