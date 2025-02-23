@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"math/rand"
 	"sync" // читать тут https://pkg.go.dev/sync
 )
@@ -10,15 +11,25 @@ type URLShortener struct {
 	// https://pkg.go.dev/sync#RWMutex
 	// хочу чтобы можно было кем угодно читать, но писать одному пока, создал и переиспользуешь на протяжении работы аппы
 	sync.RWMutex
-	store map[string]string
+	store           map[string]string
+	fileStoragePath string
 }
 
 // NewURLShortener создаёт новый экземпляр URLShortener, сделал чтобы меньше писать кода
 // вдруг по каким-то причинам захочется разделить потоки данных
-func NewURLShortener() *URLShortener {
-	return &URLShortener{
-		store: make(map[string]string),
+func NewURLShortener(filePath string) *URLShortener {
+	us := &URLShortener{
+		store:           make(map[string]string),
+		fileStoragePath: filePath,
 	}
+
+	if filePath != "" {
+		if err := us.loadFromFile(); err != nil {
+			fmt.Printf("Failed to load storage file: %v\n", err)
+		}
+	}
+
+	return us
 }
 
 // Shorten создает короткий идентификатор для ссылки
@@ -27,6 +38,7 @@ func (us *URLShortener) Shorten(originalURL string) string {
 	us.Lock()
 	us.store[id] = originalURL
 	us.Unlock()
+	us.saveToFile()
 	return id
 }
 

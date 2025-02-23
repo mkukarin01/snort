@@ -8,7 +8,7 @@ import (
 
 // проверил что сократилось и получилось тоже самое
 func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
-	shortener := NewURLShortener()
+	shortener := NewURLShortener("../../storage.json")
 
 	originalURL := "https://ya.ru"
 	id := shortener.Shorten(originalURL)
@@ -20,7 +20,7 @@ func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
 
 // проверил что получение несуществующего вернет ошибку
 func TestURLShortener_RetrieveNonExistent(t *testing.T) {
-	shortener := NewURLShortener()
+	shortener := NewURLShortener("../../storage.json")
 
 	_, ok := shortener.Retrieve("nonexistent")
 	assert.False(t, ok)

@@ -32,7 +32,7 @@ func createTestRouter(s *service.URLShortener) http.Handler {
 	if s != nil {
 		r = createRouter(s, cfg)
 	} else {
-		shortener := service.NewURLShortener()
+		shortener := service.NewURLShortener("../../storage.json")
 		r = createRouter(shortener, cfg)
 	}
 
@@ -101,7 +101,7 @@ func TestHandler_ShortenerPlain(t *testing.T) {
 
 // Проверка GetShortURL GET /{id}
 func TestHandler_GetShortURL(t *testing.T) {
-	shortener := service.NewURLShortener()
+	shortener := service.NewURLShortener("../../storage.json")
 	id := shortener.Shorten("https://ya.ru")
 	url := "/" + id
 

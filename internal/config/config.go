@@ -11,11 +11,12 @@ import (
 
 // Config структурка данных для конфига
 type Config struct {
-	Port       string
-	BaseDomain string
-	BasePath   string
-	Address    string
-	BaseURL    string
+	Port            string
+	BaseDomain      string
+	BasePath        string
+	Address         string
+	BaseURL         string
+	FileStoragePath string
 }
 
 // NewConfig запускаем конфигурацию, наполняем структурку, данными из командой строки
@@ -27,10 +28,12 @@ func NewConfig() *Config {
 	// переменные окружения
 	envPort := os.Getenv("SERVER_ADDRESS")
 	envBasePath := os.Getenv("BASE_URL")
+	envFileStoragePath := os.Getenv("FILE_STORAGE_PATH")
 
 	// аргументы/флаги/etc
 	flag.StringVar(&cfg.Port, "a", "8080", "Port for HTTP server")
 	flag.StringVar(&cfg.BasePath, "b", "", "Base path for shortened links")
+	flag.StringVar(&cfg.FileStoragePath, "f", "./storage.json", "Path to file storage for shortened links")
 
 	flag.Parse()
 
@@ -38,9 +41,11 @@ func NewConfig() *Config {
 	if envPort != "" {
 		cfg.Port = envPort
 	}
-
 	if envBasePath != "" {
 		cfg.BasePath = envBasePath
+	}
+	if envFileStoragePath != "" {
+		cfg.FileStoragePath = envFileStoragePath
 	}
 
 	// приводим порт к виду порта 8080 например
