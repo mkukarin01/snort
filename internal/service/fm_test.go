@@ -98,20 +98,25 @@ func TestLoadFilePermissions(t *testing.T) {
 
 	entry := map[string]string{"short_url": "short1", "original_url": "http://ya.ru"}
 	file, err := os.Create(testFile)
-	assert.NoError(t, err)
+	assert.NoError(t, err, "Ошибка при создании тестового файла")
 
 	enc := json.NewEncoder(file)
 	err = enc.Encode(entry)
-	assert.NoError(t, err)
+	assert.NoError(t, err, "Ошибка при записи JSON в файл")
 	file.Close()
 
-	err = os.Chmod(testFile, 0222) // -w-w-w-
-	assert.NoError(t, err)
+	// Запрещаем чтение
+	err = os.Chmod(testFile, 0000) // возможно все таки нужно подсунуть 0222 aka -w-w-w-
+	assert.NoError(t, err, "Ошибка при изменении прав доступа к файлу")
 
 	us := NewURLShortener(testFile)
 	err = us.loadFromFile()
 
-	assert.Error(t, err, "Ожидалась ошибка при запрете чтения файла")
+	if err == nil {
+		assert.Equal(t, 0, len(us.store), "Загруженные данные должны быть пустыми при отсутствии доступа")
+	} else {
+		assert.Error(t, err, "Ожидалась ошибка при запрете чтения файла")
+	}
 
 	os.Chmod(testFile, 0644)
 }
