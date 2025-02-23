@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mkukarin01/snort/internal/service"
+	"github.com/mkukarin01/snort/internal/storage"
 )
 
 // URLRequest - структура запроса для JSON-POST
@@ -80,4 +81,21 @@ func HandleRedirect(w http.ResponseWriter, r *http.Request, shortener *service.U
 	} else {
 		http.Error(w, "URL not found", http.StatusBadRequest)
 	}
+}
+
+func HandlePing(w http.ResponseWriter, r *http.Request, db storage.Storager) {
+	// db не инициализируем - 500 и работаем дальше
+	if db == nil {
+		http.Error(w, "Database connection is not configured", http.StatusInternalServerError)
+		return
+	}
+
+	// db не пингуется - 500 и все равно работаем дальше
+	if err := db.Ping(); err != nil {
+		http.Error(w, "Database connection failed", http.StatusInternalServerError)
+		return
+	}
+
+	// 200
+	w.WriteHeader(http.StatusOK)
 }
