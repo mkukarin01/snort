@@ -1,53 +1,31 @@
 package service
 
 import (
-	"fmt"
 	"math/rand"
-	"sync" // читать тут https://pkg.go.dev/sync
+
+	"github.com/mkukarin01/snort/internal/storage"
 )
 
-// URLShortener тип данных сопоставления данных id - ссылка
+// URLShortener обертка для хранилища
 type URLShortener struct {
-	// https://pkg.go.dev/sync#RWMutex
-	// хочу чтобы можно было кем угодно читать, но писать одному пока, создал и переиспользуешь на протяжении работы аппы
-	sync.RWMutex
-	store           map[string]string
-	fileStoragePath string
+	store storage.Storager
 }
 
-// NewURLShortener создаёт новый экземпляр URLShortener, сделал чтобы меньше писать кода
-// вдруг по каким-то причинам захочется разделить потоки данных
-func NewURLShortener(filePath string) *URLShortener {
-	us := &URLShortener{
-		store:           make(map[string]string),
-		fileStoragePath: filePath,
-	}
-
-	if filePath != "" {
-		if err := us.loadFromFile(); err != nil {
-			fmt.Printf("Failed to load storage file: %v\n", err)
-		}
-	}
-
-	return us
+// NewURLShortener создаёт новый URLShortener
+func NewURLShortener(store storage.Storager) *URLShortener {
+	return &URLShortener{store: store}
 }
 
 // Shorten создает короткий идентификатор для ссылки
 func (us *URLShortener) Shorten(originalURL string) string {
 	id := generateID()
-	us.Lock()
-	us.store[id] = originalURL
-	us.Unlock()
-	us.saveToFile()
+	us.store.Save(id, originalURL)
 	return id
 }
 
 // Retrieve юзаем стор чтобы вытащить данные по идентификатору и возвращаем + ок
 func (us *URLShortener) Retrieve(id string) (string, bool) {
-	us.RLock()
-	url, ok := us.store[id]
-	us.RUnlock()
-	return url, ok
+	return us.store.Load(id)
 }
 
 // generateID рандомный идентификатор, написал тупую функцию

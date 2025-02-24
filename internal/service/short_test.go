@@ -3,12 +3,14 @@ package service
 import (
 	"testing"
 
+	"github.com/mkukarin01/snort/internal/storage"
 	"github.com/stretchr/testify/assert"
 )
 
 // проверил что сократилось и получилось тоже самое
 func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
-	shortener := NewURLShortener("../../storage.json")
+	storage := storage.NewMemoryStorage()
+	shortener := NewURLShortener(storage)
 
 	originalURL := "https://ya.ru"
 	id := shortener.Shorten(originalURL)
@@ -20,7 +22,8 @@ func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
 
 // проверил что получение несуществующего вернет ошибку
 func TestURLShortener_RetrieveNonExistent(t *testing.T) {
-	shortener := NewURLShortener("../../storage.json")
+	storage := storage.NewMemoryStorage()
+	shortener := NewURLShortener(storage)
 
 	_, ok := shortener.Retrieve("nonexistent")
 	assert.False(t, ok)

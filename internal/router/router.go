@@ -15,7 +15,7 @@ import (
 
 // NewRouter - создаем роутер chi
 func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
-	shortener := service.NewURLShortener(cfg.FileStoragePath)
+	shortener := service.NewURLShortener(db)
 	r := chi.NewRouter()
 
 	// инициализуем собственный логгер синглтончик => мидлварь

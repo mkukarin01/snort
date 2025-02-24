@@ -16,16 +16,13 @@ func Run() {
 		log.Fatalf("Invalid configuration: %v", err)
 	}
 
-	db, err := storage.NewDatabase(cfg.DatabaseDSN)
+	store, err := storage.NewStorage(cfg)
 	if err != nil {
-		log.Printf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to initialize storage: %v", err)
 	}
+	defer store.Close()
 
-	if db != nil {
-		defer db.Close()
-	}
-
-	r := router.NewRouter(cfg, db)
+	r := router.NewRouter(cfg, store)
 	log.Printf("Starting server on http://%s\n", cfg.Address)
 	log.Fatal(http.ListenAndServe(cfg.Address, r))
 }

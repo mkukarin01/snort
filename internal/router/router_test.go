@@ -35,9 +35,11 @@ func TestRouter_Routes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	// так-то теперь можно не мокать, а напрямую дергать memoryStorage и не париться
 	// мокаем стораджер
 	mockDB := storage.NewMockStorager(ctrl)
 	mockDB.EXPECT().Ping().Return(nil)
+	mockDB.EXPECT().Load("anyShortID").Return("http://ya.ru", true)
 
 	r := NewRouter(cfg, mockDB)
 

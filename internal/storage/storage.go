@@ -1,11 +1,7 @@
 package storage
 
 import (
-	"database/sql"
-	"errors"
-	"fmt"
-
-	_ "github.com/lib/pq" // какой-то драйвер
+	"github.com/mkukarin01/snort/internal/config"
 )
 
 // Storager - интерфейс для работы с бд или другим хранилищем
@@ -13,44 +9,17 @@ import (
 type Storager interface {
 	Ping() error
 	Close() error
+	Save(id, url string) error
+	Load(id string) (string, bool)
 }
 
-// Database обертка вокруг *sql.DB, реализует Storager
-type Database struct {
-	db *sql.DB
-}
-
-// NewDatabase запускатор соединения с pg или БД
-func NewDatabase(dsn string) (*Database, error) {
-	if dsn == "" {
-		return nil, fmt.Errorf("database DSN is empty")
+// NewStorage определяет используемое хранилище
+func NewStorage(cfg *config.Config) (Storager, error) {
+	if cfg.DatabaseDSN != "" {
+		return NewDatabase(cfg.DatabaseDSN)
 	}
-
-	db, err := sql.Open("postgres", dsn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+	if cfg.FileStoragePath != "" {
+		return NewFileStorage(cfg.FileStoragePath)
 	}
-
-	// пинганем соединение
-	if err := db.Ping(); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("failed to ping database: %w", err)
-	}
-
-	return &Database{db: db}, nil
-}
-
-// Ping - проверка соединения с базой данных
-func (d *Database) Ping() error {
-	if d == nil || d.db == nil {
-		return errors.New("database connection is nil")
-	}
-	return d.db.Ping()
-}
-
-func (d *Database) Close() error {
-	if d == nil || d.db == nil {
-		return errors.New("database connection is already closed or uninitialized")
-	}
-	return d.db.Close()
+	return NewMemoryStorage(), nil
 }
