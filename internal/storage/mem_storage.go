@@ -27,6 +27,17 @@ func (ms *MemoryStorage) Save(id, url string) error {
 	return nil
 }
 
+func (ms *MemoryStorage) SaveBatch(urls map[string]string) error {
+	ms.Lock()
+	defer ms.Unlock()
+
+	for id, url := range urls {
+		ms.store[id] = url
+	}
+
+	return nil
+}
+
 func (ms *MemoryStorage) Load(id string) (string, bool) {
 	ms.RLock()
 	defer ms.RUnlock()

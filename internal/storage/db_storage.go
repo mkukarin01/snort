@@ -75,6 +75,35 @@ func (d *Database) Save(id, url string) error {
 	return err
 }
 
+// SaveBatch - сохраняемся несколько раз через комит - f5 + f5 + f5
+func (d *Database) SaveBatch(urls map[string]string) error {
+	if d == nil || d.db == nil {
+		return errors.New("database connection is nil")
+	}
+
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.Prepare("INSERT INTO urls (short_id, original_url) VALUES ($1, $2) ON CONFLICT (short_id) DO NOTHING")
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	defer stmt.Close()
+
+	for id, url := range urls {
+		_, err := stmt.Exec(id, url)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 // Load - загружаеся f8
 func (d *Database) Load(id string) (string, bool) {
 	// для нул базы - ничего не возвращаем

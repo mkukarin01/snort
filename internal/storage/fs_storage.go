@@ -36,6 +36,18 @@ func (fs *FileStorage) Save(id, url string) error {
 	return fs.save()
 }
 
+// SaveBatch сохраняем батч
+func (fs *FileStorage) SaveBatch(urls map[string]string) error {
+	fs.Lock()
+	defer fs.Unlock()
+
+	for id, url := range urls {
+		fs.store[id] = url
+	}
+
+	return fs.save()
+}
+
 func (fs *FileStorage) Load(id string) (string, bool) {
 	fs.RLock()
 	defer fs.RUnlock()

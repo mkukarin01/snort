@@ -28,3 +28,26 @@ func TestURLShortener_RetrieveNonExistent(t *testing.T) {
 	_, ok := shortener.Retrieve("nonexistent")
 	assert.False(t, ok)
 }
+
+func TestURLShortener_ShortenBatchAndRetrieve(t *testing.T) {
+	storage := storage.NewMemoryStorage()
+	shortener := NewURLShortener(storage)
+
+	urls := map[string]string{
+		"1": "http://ya.ru",
+		"2": "http://github.com",
+	}
+
+	shortened := shortener.ShortenBatch(urls)
+
+	assert.Len(t, shortened, len(urls))
+
+	for correlationID, originalURL := range urls {
+		shortID, exists := shortened[correlationID]
+		assert.True(t, exists, "The correlation ID should exist in shortened URLs")
+
+		retrievedURL, ok := shortener.Retrieve(shortID)
+		assert.True(t, ok, "Shortened ID should be retrievable")
+		assert.Equal(t, originalURL, retrievedURL, "Retrieved URL should match original URL")
+	}
+}

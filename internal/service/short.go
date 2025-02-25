@@ -23,6 +23,23 @@ func (us *URLShortener) Shorten(originalURL string) string {
 	return id
 }
 
+// Shorten создает короткие идентификаторы для ссылок
+func (us *URLShortener) ShortenBatch(urls map[string]string) map[string]string {
+	result := make(map[string]string)
+	batchData := make(map[string]string)
+
+	for correlationID, originalURL := range urls {
+		id := generateID()
+		result[correlationID] = id
+		batchData[id] = originalURL
+	}
+
+	// race condition обрабатывается на слое хранилища
+	us.store.SaveBatch(batchData)
+
+	return result
+}
+
 // Retrieve юзаем стор чтобы вытащить данные по идентификатору и возвращаем + ок
 func (us *URLShortener) Retrieve(id string) (string, bool) {
 	return us.store.Load(id)

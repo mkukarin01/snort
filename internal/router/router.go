@@ -40,6 +40,10 @@ func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
 		handlers.HandleShortenJSON(w, r, shortener, cfg.BaseURL)
 	})
 
+	r.Post("/api/shorten/batch", func(w http.ResponseWriter, r *http.Request) {
+		handlers.HandleShortenBatch(w, r, shortener, cfg.BaseURL)
+	})
+
 	if cfg.BasePath == "" {
 		r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
 			handlers.HandleRedirect(w, r, shortener)

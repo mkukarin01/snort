@@ -5,11 +5,11 @@ import (
 )
 
 // Storager - интерфейс для работы с бд или другим хранилищем
-// (ага, можно же как-то потом подключится к ./storage.json)
 type Storager interface {
 	Ping() error
 	Close() error
 	Save(id, url string) error
+	SaveBatch(urls map[string]string) error
 	Load(id string) (string, bool)
 }
 
