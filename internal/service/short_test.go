@@ -19,9 +19,9 @@ func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, originalURL, retrievedURL)
 
-	nextId, conflict := shortener.Shorten(originalURL)
+	nextID, conflict := shortener.Shorten(originalURL)
 	assert.True(t, conflict)
-	assert.Equal(t, id, nextId)
+	assert.Equal(t, id, nextID)
 }
 
 // проверил что получение несуществующего вернет ошибку
