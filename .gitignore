@@ -24,3 +24,9 @@ vendor/
 
 # docs
 docs/
+
+# ifnore os files
+.DS_store
+
+# ignore data storage file
+storage.json
