@@ -5,13 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sync" // читать тут https://pkg.go.dev/sync
+	"sync"
 )
 
 // FileStorage реализация хранилища в файле
 type FileStorage struct {
-	// https://pkg.go.dev/sync#RWMutex
-	// хочу чтобы можно было кем угодно читать, но писать одному пока, создал и переиспользуешь на протяжении работы аппы
 	sync.RWMutex
 	filePath string
 	store    map[string]string
@@ -32,6 +30,23 @@ func NewFileStorage(filePath string) (*FileStorage, error) {
 func (fs *FileStorage) Save(id, url string) error {
 	fs.Lock()
 	defer fs.Unlock()
+
+	// если какой-то другой shortID уже хранит этот url - вернём конфликт
+	for existID, existURL := range fs.store {
+		if existURL == url {
+			if existID != id {
+				return ErrURLConflict
+			}
+		}
+	}
+
+	// если такой shortID уже есть - это конфликт по short_id
+	if _, ok := fs.store[id]; ok {
+		if fs.store[id] != url {
+			return ErrShortIDConflict
+		}
+	}
+
 	fs.store[id] = url
 	return fs.save()
 }
@@ -63,7 +78,7 @@ func (fs *FileStorage) save() error {
 	defer file.Close()
 
 	enc := json.NewEncoder(file)
-	// return enc.Encode(fs.store)
+	// сохраним в том же формате
 	for id, url := range fs.store {
 		entry := map[string]string{"short_url": id, "original_url": url}
 		if err := enc.Encode(entry); err != nil {
@@ -96,6 +111,18 @@ func (fs *FileStorage) load() error {
 		fs.store[entry["short_url"]] = entry["original_url"]
 	}
 	return nil
+}
+
+// FindIDByURL находим short_id по original_url
+func (fs *FileStorage) FindIDByURL(url string) (string, bool) {
+	fs.RLock()
+	defer fs.RUnlock()
+	for id, storedURL := range fs.store {
+		if storedURL == url {
+			return id, true
+		}
+	}
+	return "", false
 }
 
 // фс можно оставить без пинга и закрытия

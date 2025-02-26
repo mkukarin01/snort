@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"math/rand"
 
 	"github.com/mkukarin01/snort/internal/storage"
@@ -17,13 +18,38 @@ func NewURLShortener(store storage.Storager) *URLShortener {
 }
 
 // Shorten создает короткий идентификатор для ссылки
-func (us *URLShortener) Shorten(originalURL string) string {
-	id := generateID()
-	us.store.Save(id, originalURL)
-	return id
+// Возвращает сам идентификатор и флаг conflict (указатель ошибки - дубликат ссылки или другая проблема)
+func (us *URLShortener) Shorten(originalURL string) (string, bool) {
+	for {
+		id := generateID()
+		err := us.store.Save(id, originalURL)
+		if err == nil {
+			// успех
+			return id, false
+		}
+
+		// ошибка - разрбираемся что происходит
+		if errors.Is(err, storage.ErrURLConflict) {
+			// все уже в хранилище, найдем другой shortId и вернем 409
+			existingID, ok := us.store.FindIDByURL(originalURL)
+			if ok {
+				return existingID, true
+			}
+			// fallback: если почему-то не нашли - считаем неудачей
+			return "", false
+		}
+
+		if errors.Is(err, storage.ErrShortIDConflict) {
+			// коллизия по short_id, попробуем сгенерировать заново
+			continue
+		}
+
+		// Прочие ошибки - завершаем
+		return "", false
+	}
 }
 
-// Shorten создает короткие идентификаторы для ссылок
+// ShortenBatch создает короткие идентификаторы для ссылок
 func (us *URLShortener) ShortenBatch(urls map[string]string) map[string]string {
 	result := make(map[string]string)
 	batchData := make(map[string]string)

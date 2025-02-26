@@ -13,11 +13,15 @@ func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
 	shortener := NewURLShortener(storage)
 
 	originalURL := "https://ya.ru"
-	id := shortener.Shorten(originalURL)
+	id, _ := shortener.Shorten(originalURL)
 
 	retrievedURL, ok := shortener.Retrieve(id)
 	assert.True(t, ok)
 	assert.Equal(t, originalURL, retrievedURL)
+
+	nextId, conflict := shortener.Shorten(originalURL)
+	assert.True(t, conflict)
+	assert.Equal(t, id, nextId)
 }
 
 // проверил что получение несуществующего вернет ошибку

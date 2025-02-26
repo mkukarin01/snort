@@ -106,7 +106,7 @@ func TestHandler_ShortenerPlain(t *testing.T) {
 func TestHandler_GetShortURL(t *testing.T) {
 	ms := storage.NewMemoryStorage()
 	shortener := service.NewURLShortener(ms)
-	id := shortener.Shorten("https://ya.ru")
+	id, _ := shortener.Shorten("https://ya.ru")
 	url := "/" + id
 
 	r := createTestRouter(shortener)

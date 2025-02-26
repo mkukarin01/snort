@@ -42,8 +42,15 @@ func HandleShorten(w http.ResponseWriter, r *http.Request, shortener *service.UR
 		return
 	}
 
-	id := shortener.Shorten(urlStr)
+	id, conflict := shortener.Shorten(urlStr)
 	shortURL := baseURL + "/" + id
+
+	if conflict {
+		// url есть в бд - отдаем 409 Conflict
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(shortURL))
+		return
+	}
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortURL))
@@ -63,10 +70,18 @@ func HandleShortenJSON(w http.ResponseWriter, r *http.Request, shortener *servic
 		return
 	}
 
-	id := shortener.Shorten(req.URL)
+	id, conflict := shortener.Shorten(req.URL)
 	shortURL := baseURL + "/" + id
 
 	resp := URLResponse{Result: shortURL}
+
+	if conflict {
+		// url есть в бд - отдаем 409 Conflict
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

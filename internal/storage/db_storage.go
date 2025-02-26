@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	_ "github.com/lib/pq" // какой-то драйвер
+	"github.com/jackc/pgerrcode"
+	"github.com/lib/pq"
 )
 
 // Database реализация хранилища в бд
@@ -30,11 +31,12 @@ func NewDatabase(dsn string) (*Database, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
+	// создаем таблицу с уникальными полями short_id и original_url
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS urls (
 			id SERIAL PRIMARY KEY,
 			short_id VARCHAR(8) UNIQUE NOT NULL,
-			original_url TEXT NOT NULL
+			original_url TEXT UNIQUE NOT NULL
 		)
 	`)
 	if err != nil {
@@ -64,15 +66,84 @@ func (d *Database) Close() error {
 	return d.db.Close()
 }
 
-// Save - сохраняемся f5
+// Save - сохраняем f5, обрабатывая конфликты
+// первая версия имплементации
+// func (d *Database) Save(id, url string) error {
+// 	if d == nil || d.db == nil {
+// 		return errors.New("database connection is nil")
+// 	}
+
+// 	// используем ON CONFLICT DO NOTHING, чтобы не выкидывать исключения от PG
+// 	// хотя можно использовать пакет github.com/jackc/pgerrcode
+// 	res, err := d.db.Exec(`
+// 		INSERT INTO urls (short_id, original_url)
+// 		VALUES ($1, $2)
+// 		ON CONFLICT DO NOTHING
+// 	`, id, url)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	rowsAffected, err := res.RowsAffected()
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	if rowsAffected == 1 {
+// 		// конфликтов не было
+// 		return nil
+// 	}
+
+// 	// rowsAffected == 0 => значит была конфликтная ситуация
+// 	// чем именно вызван конфликт: short_id или original_url?
+// 	// Сначала проверим, есть ли в базе уже такая original_url
+// 	var existingShortID string
+// 	err = d.db.QueryRow("SELECT short_id FROM urls WHERE original_url = $1", url).Scan(&existingShortID)
+// 	if err == nil && existingShortID != "" {
+// 		// конфликт по original_url
+// 		return ErrURLConflict
+// 	}
+
+// 	// конфликт по short_id
+// 	return ErrShortIDConflict
+// }
+
+// Save - сохраняем f5, обрабатывая конфликты
 func (d *Database) Save(id, url string) error {
-	// для нул базы - вернем ошибку
 	if d == nil || d.db == nil {
 		return errors.New("database connection is nil")
 	}
 
-	_, err := d.db.Exec("INSERT INTO urls (short_id, original_url) VALUES ($1, $2) ON CONFLICT (short_id) DO NOTHING", id, url)
-	return err
+	_, err := d.db.Exec(`
+		INSERT INTO urls (short_id, original_url) 
+		VALUES ($1, $2)
+	`, id, url)
+
+	// используя pqErr получается можно обернуться в switch, что проще для чтения
+	// если бы в го поддерживалось как js:
+	// switch(true) {
+	//   case val === 0: { ... }
+	//   case val === 1: { ... }
+	//   default: { ... }
+	// }
+	// можно было бы реализовать такой же свитч наверно (я не уверен)
+	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) {
+			switch pqErr.Code {
+			case pgerrcode.UniqueViolation:
+				if pqErr.Constraint == "urls_original_url_key" { // unique для original_url
+					return ErrURLConflict
+				}
+				if pqErr.Constraint == "urls_short_id_key" { // unique для short_id
+					return ErrShortIDConflict
+				}
+			}
+		}
+		return err
+	}
+
+	return nil
 }
 
 // SaveBatch - сохраняемся несколько раз через комит - f5 + f5 + f5
@@ -86,7 +157,11 @@ func (d *Database) SaveBatch(urls map[string]string) error {
 		return err
 	}
 
-	stmt, err := tx.Prepare("INSERT INTO urls (short_id, original_url) VALUES ($1, $2) ON CONFLICT (short_id) DO NOTHING")
+	stmt, err := tx.Prepare(`
+		INSERT INTO urls (short_id, original_url) 
+		VALUES ($1, $2) 
+		ON CONFLICT DO NOTHING
+	`)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -117,4 +192,19 @@ func (d *Database) Load(id string) (string, bool) {
 		return "", false
 	}
 	return url, true
+}
+
+// FindIDByURL находит short_id по original_url
+func (d *Database) FindIDByURL(url string) (string, bool) {
+	if d == nil || d.db == nil {
+		return "", false
+	}
+
+	var shortID string
+	err := d.db.QueryRow("SELECT short_id FROM urls WHERE original_url = $1", url).Scan(&shortID)
+	if err != nil {
+		return "", false
+	}
+
+	return shortID, true
 }

@@ -47,6 +47,21 @@ func (mr *MockStoragerMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockStorager)(nil).Close))
 }
 
+// FindIDByURL mocks base method.
+func (m *MockStorager) FindIDByURL(url string) (string, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindIDByURL", url)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// FindIDByURL indicates an expected call of FindIDByURL.
+func (mr *MockStoragerMockRecorder) FindIDByURL(url interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindIDByURL", reflect.TypeOf((*MockStorager)(nil).FindIDByURL), url)
+}
+
 // Load mocks base method.
 func (m *MockStorager) Load(id string) (string, bool) {
 	m.ctrl.T.Helper()
