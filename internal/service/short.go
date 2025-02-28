@@ -1,53 +1,95 @@
 package service
 
 import (
-	"fmt"
+	"errors"
 	"math/rand"
-	"sync" // читать тут https://pkg.go.dev/sync
+
+	"github.com/mkukarin01/snort/internal/storage"
 )
 
-// URLShortener тип данных сопоставления данных id - ссылка
+// URLShortener обертка для хранилища
 type URLShortener struct {
-	// https://pkg.go.dev/sync#RWMutex
-	// хочу чтобы можно было кем угодно читать, но писать одному пока, создал и переиспользуешь на протяжении работы аппы
-	sync.RWMutex
-	store           map[string]string
-	fileStoragePath string
+	store storage.Storager
 }
 
-// NewURLShortener создаёт новый экземпляр URLShortener, сделал чтобы меньше писать кода
-// вдруг по каким-то причинам захочется разделить потоки данных
-func NewURLShortener(filePath string) *URLShortener {
-	us := &URLShortener{
-		store:           make(map[string]string),
-		fileStoragePath: filePath,
-	}
+// UserURL структурка (short_url, original_url)
+type UserURL struct {
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
 
-	if filePath != "" {
-		if err := us.loadFromFile(); err != nil {
-			fmt.Printf("Failed to load storage file: %v\n", err)
+// NewURLShortener создаёт новый URLShortener
+func NewURLShortener(store storage.Storager) *URLShortener {
+	return &URLShortener{store: store}
+}
+
+// Shorten создает короткий идентификатор для ссылки по userID
+// Возвращает сам идентификатор и флаг conflict (указатель ошибки - дубликат ссылки или другая проблема)
+func (us *URLShortener) Shorten(originalURL, userID string) (string, bool) {
+	for {
+		id := generateID()
+		err := us.store.SaveUserURL(userID, id, originalURL)
+		if err == nil {
+			// успех
+			return id, false
 		}
-	}
 
-	return us
+		// ошибка - разрбираемся что происходит
+		if errors.Is(err, storage.ErrURLConflict) {
+			// все уже в хранилище, найдем другой shortId и вернем 409
+			existingID, ok := us.store.FindIDByURL(originalURL)
+			if ok {
+				return existingID, true
+			}
+			// fallback: если почему-то не нашли - считаем неудачей
+			return "", false
+		}
+
+		if errors.Is(err, storage.ErrShortIDConflict) {
+			// коллизия по short_id, попробуем сгенерировать заново
+			continue
+		}
+
+		// Прочие ошибки - завершаем
+		return "", false
+	}
 }
 
-// Shorten создает короткий идентификатор для ссылки
-func (us *URLShortener) Shorten(originalURL string) string {
-	id := generateID()
-	us.Lock()
-	us.store[id] = originalURL
-	us.Unlock()
-	us.saveToFile()
-	return id
+// ShortenBatch создает короткие идентификаторы для ссылок
+func (us *URLShortener) ShortenBatch(urls map[string]string, userID string) map[string]string {
+	result := make(map[string]string)
+	batchData := make(map[string]string)
+
+	for correlationID, originalURL := range urls {
+		id := generateID()
+		result[correlationID] = id
+		batchData[id] = originalURL
+	}
+
+	us.store.SaveBatchUserURLs(userID, batchData)
+
+	return result
 }
 
 // Retrieve юзаем стор чтобы вытащить данные по идентификатору и возвращаем + ок
 func (us *URLShortener) Retrieve(id string) (string, bool) {
-	us.RLock()
-	url, ok := us.store[id]
-	us.RUnlock()
-	return url, ok
+	return us.store.Load(id)
+}
+
+// UserURLs возвращает все ссылки по userID
+func (us *URLShortener) UserURLs(userID string, baseURL string) ([]UserURL, error) {
+	urls, err := us.store.GetUserURLs(userID)
+	if err != nil {
+		return nil, err
+	}
+	results := make([]UserURL, 0, len(urls))
+	for _, u := range urls {
+		results = append(results, UserURL{
+			ShortURL:    baseURL + "/" + u.ShortURL,
+			OriginalURL: u.OriginalURL,
+		})
+	}
+	return results, nil
 }
 
 // generateID рандомный идентификатор, написал тупую функцию
