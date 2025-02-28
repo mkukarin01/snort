@@ -16,8 +16,8 @@ func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
 	originalURL := "https://ya.ru"
 	id, _ := shortener.Shorten(originalURL, uid)
 
-	retrievedURL, ok := shortener.Retrieve(id)
-	assert.True(t, ok)
+	retrievedURL, foundErr := shortener.Retrieve(id)
+	assert.Nil(t, foundErr)
 	assert.Equal(t, originalURL, retrievedURL)
 
 	nextID, conflict := shortener.Shorten(originalURL, uid)
@@ -27,16 +27,16 @@ func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
 
 // проверил что получение несуществующего вернет ошибку
 func TestURLShortener_RetrieveNonExistent(t *testing.T) {
-	storage := storage.NewMemoryStorage()
-	shortener := NewURLShortener(storage)
+	store := storage.NewMemoryStorage()
+	shortener := NewURLShortener(store)
 
-	_, ok := shortener.Retrieve("nonexistent")
-	assert.False(t, ok)
+	_, foundErr := shortener.Retrieve("nonexistent")
+	assert.ErrorIs(t, foundErr, storage.ErrURLNotFound)
 }
 
 func TestURLShortener_ShortenBatchAndRetrieve(t *testing.T) {
-	storage := storage.NewMemoryStorage()
-	shortener := NewURLShortener(storage)
+	store := storage.NewMemoryStorage()
+	shortener := NewURLShortener(store)
 	uid := "bar"
 
 	urls := map[string]string{
@@ -52,8 +52,8 @@ func TestURLShortener_ShortenBatchAndRetrieve(t *testing.T) {
 		shortID, exists := shortened[correlationID]
 		assert.True(t, exists, "The correlation ID should exist in shortened URLs")
 
-		retrievedURL, ok := shortener.Retrieve(shortID)
-		assert.True(t, ok, "Shortened ID should be retrievable")
+		retrievedURL, foundErr := shortener.Retrieve(shortID)
+		assert.Nil(t, foundErr, "Shortened ID should be retrievable")
 		assert.Equal(t, originalURL, retrievedURL, "Retrieved URL should match original URL")
 	}
 }

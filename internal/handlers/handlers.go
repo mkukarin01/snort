@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -149,11 +150,19 @@ func HandleShortenBatch(w http.ResponseWriter, r *http.Request, shortener *servi
 // HandleRedirect - обработчик для GET /{id}
 func HandleRedirect(w http.ResponseWriter, r *http.Request, shortener *service.URLShortener) {
 	id := chi.URLParam(r, "id")
-	if originalURL, ok := shortener.Retrieve(id); ok {
-		http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
-	} else {
+	originalURL, err := shortener.Retrieve(id)
+	if err != nil {
+		// Если получаем ошибку "удалено", возвращаем 410
+		if errors.Is(err, storage.ErrURLDeleted) {
+			http.Error(w, "URL is deleted", http.StatusGone)
+			return
+		}
+		// Если "не найдено" или любая другая - 400
 		http.Error(w, "URL not found", http.StatusBadRequest)
+		return
 	}
+
+	http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
 }
 
 // HandlePing - обработчик для GET /ping
@@ -194,4 +203,25 @@ func HandleUserURLs(w http.ResponseWriter, r *http.Request, shortener *service.U
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(userURLs)
+}
+
+// HandleDeleteUserURLs - обработчик для DELETE /api/user/urls
+func HandleDeleteUserURLs(w http.ResponseWriter, r *http.Request, deleter *service.URLDeleter) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var shortIDs []string
+	if err := json.NewDecoder(r.Body).Decode(&shortIDs); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Вызываем асинхронное удаление (fanIn)
+	deleter.Submit(userID, shortIDs)
+
+	// Возвращаем 202 Accepted
+	w.WriteHeader(http.StatusAccepted)
 }

@@ -78,11 +78,11 @@ func (mr *MockStoragerMockRecorder) GetUserURLs(userID interface{}) *gomock.Call
 }
 
 // Load mocks base method.
-func (m *MockStorager) Load(id string) (string, bool) {
+func (m *MockStorager) Load(id string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Load", id)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(bool)
+	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
@@ -90,6 +90,20 @@ func (m *MockStorager) Load(id string) (string, bool) {
 func (mr *MockStoragerMockRecorder) Load(id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockStorager)(nil).Load), id)
+}
+
+// MarkUserURLsDeleted mocks base method.
+func (m *MockStorager) MarkUserURLsDeleted(userID string, shortIDs []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkUserURLsDeleted", userID, shortIDs)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkUserURLsDeleted indicates an expected call of MarkUserURLsDeleted.
+func (mr *MockStoragerMockRecorder) MarkUserURLsDeleted(userID, shortIDs interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkUserURLsDeleted", reflect.TypeOf((*MockStorager)(nil).MarkUserURLsDeleted), userID, shortIDs)
 }
 
 // Ping mocks base method.

@@ -13,21 +13,22 @@ type fileEntry struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
 	UserID      string `json:"user_id"`
+	IsDeleted   bool   `json:"is_deleted"`
 }
 
 // FileStorage реализация хранилища в файле
 type FileStorage struct {
 	sync.RWMutex
 	filePath  string
-	store     map[string]string   // старое поле: short -> original
-	userLinks map[string][]string // user->[]shortIDs
+	store     map[string]*fileEntry // short_id -> *fileEntry
+	userLinks map[string][]string   // user->[]shortIDs
 }
 
 // NewFileStorage запускатор "соединения" с файлом, аналогия на NewDatabase
 func NewFileStorage(filePath string) (*FileStorage, error) {
 	fs := &FileStorage{
 		filePath:  filePath,
-		store:     make(map[string]string),
+		store:     make(map[string]*fileEntry),
 		userLinks: make(map[string][]string),
 	}
 	if err := fs.load(); err != nil {
@@ -46,25 +47,30 @@ func (fs *FileStorage) SaveBatch(urls map[string]string) error {
 	return fs.SaveBatchUserURLs("", urls)
 }
 
-func (fs *FileStorage) Load(id string) (string, bool) {
+func (fs *FileStorage) Load(id string) (string, error) {
 	fs.RLock()
 	defer fs.RUnlock()
-	url, exists := fs.store[id]
-	return url, exists
+	entry, ok := fs.store[id]
+	if !ok {
+		return "", ErrURLNotFound
+	}
+	if entry.IsDeleted {
+		return "", ErrURLDeleted
+	}
+	return entry.OriginalURL, nil
 }
 
 func (fs *FileStorage) FindIDByURL(url string) (string, bool) {
 	fs.RLock()
 	defer fs.RUnlock()
-	for id, storedURL := range fs.store {
-		if storedURL == url {
+	for id, entry := range fs.store {
+		if entry.OriginalURL == url {
 			return id, true
 		}
 	}
 	return "", false
 }
 
-// фс можно оставить без пинга и закрытия
 func (fs *FileStorage) Ping() error  { return errors.New("there is no connection: fs001") }
 func (fs *FileStorage) Close() error { return nil }
 
@@ -74,18 +80,23 @@ func (fs *FileStorage) SaveUserURL(userID, shortID, originalURL string) error {
 	fs.Lock()
 	defer fs.Unlock()
 
-	// если какой-то другой shortID уже хранит этот url - вернём конфликт
-	for existID, existURL := range fs.store {
-		if existURL == originalURL && existID != shortID {
+	// если уже есть такой originalURL у другого shortID - вернём конфликт
+	for existID, entry := range fs.store {
+		if entry.OriginalURL == originalURL && existID != shortID {
 			return ErrURLConflict
 		}
 	}
 	// проверка на конфликт shortID
-	if oldURL, ok := fs.store[shortID]; ok && oldURL != originalURL {
+	if oldEntry, ok := fs.store[shortID]; ok && oldEntry.OriginalURL != originalURL {
 		return ErrShortIDConflict
 	}
 
-	fs.store[shortID] = originalURL
+	fs.store[shortID] = &fileEntry{
+		ShortURL:    shortID,
+		OriginalURL: originalURL,
+		UserID:      userID,
+		IsDeleted:   false,
+	}
 	if userID != "" {
 		fs.userLinks[userID] = append(fs.userLinks[userID], shortID)
 	}
@@ -98,7 +109,12 @@ func (fs *FileStorage) SaveBatchUserURLs(userID string, batch map[string]string)
 	defer fs.Unlock()
 
 	for shortID, originalURL := range batch {
-		fs.store[shortID] = originalURL
+		fs.store[shortID] = &fileEntry{
+			ShortURL:    shortID,
+			OriginalURL: originalURL,
+			UserID:      userID,
+			IsDeleted:   false,
+		}
 		if userID != "" {
 			fs.userLinks[userID] = append(fs.userLinks[userID], shortID)
 		}
@@ -118,10 +134,30 @@ func (fs *FileStorage) GetUserURLs(userID string) ([]UserURL, error) {
 
 	var result []UserURL
 	for _, sid := range shortIDs {
-		orig := fs.store[sid]
-		result = append(result, UserURL{ShortURL: sid, OriginalURL: orig})
+		entry := fs.store[sid]
+		if entry != nil && !entry.IsDeleted {
+			result = append(result, UserURL{
+				ShortURL:    sid,
+				OriginalURL: entry.OriginalURL,
+			})
+		}
 	}
 	return result, nil
+}
+
+// MarkUserURLsDeleted - множественное обновление для userID и списка shortIDs
+func (fs *FileStorage) MarkUserURLsDeleted(userID string, shortIDs []string) error {
+	fs.Lock()
+	defer fs.Unlock()
+
+	for _, sid := range shortIDs {
+		entry, ok := fs.store[sid]
+		if ok && entry.UserID == userID {
+			entry.IsDeleted = true
+		}
+	}
+
+	return fs.save()
 }
 
 // ----------------- Внутренние методы -----------------
@@ -135,21 +171,9 @@ func (fs *FileStorage) save() error {
 
 	enc := json.NewEncoder(file)
 
-	// shortID -> userID
-	shortToUser := make(map[string]string)
-	for uid, sids := range fs.userLinks {
-		for _, sid := range sids {
-			if _, found := shortToUser[sid]; !found {
-				shortToUser[sid] = uid
-			}
-		}
-	}
-
-	for shortID, originalURL := range fs.store {
-		entry := fileEntry{
-			ShortURL:    shortID,
-			OriginalURL: originalURL,
-			UserID:      shortToUser[shortID],
+	for _, entry := range fs.store {
+		if entry == nil {
+			continue
 		}
 		if err := enc.Encode(entry); err != nil {
 			fmt.Printf("Failed to encode entry: %v\n", err)
@@ -179,7 +203,7 @@ func (fs *FileStorage) load() error {
 			return fmt.Errorf("failed to decode JSON: %w", err)
 		}
 
-		fs.store[entry.ShortURL] = entry.OriginalURL
+		fs.store[entry.ShortURL] = &entry
 		if entry.UserID != "" {
 			fs.userLinks[entry.UserID] = append(fs.userLinks[entry.UserID], entry.ShortURL)
 		}

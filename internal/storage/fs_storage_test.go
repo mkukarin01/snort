@@ -19,8 +19,8 @@ func TestFileStorage_SaveLoad(t *testing.T) {
 	err = fs.Save("testID", "http://ya.ru")
 	assert.NoError(t, err)
 
-	url, found := fs.Load("testID")
-	assert.True(t, found)
+	url, foundErr := fs.Load("testID")
+	assert.Nil(t, foundErr)
 	assert.Equal(t, "http://ya.ru", url)
 }
 
@@ -33,8 +33,8 @@ func TestFileStorage_EmptyFile(t *testing.T) {
 	fs, err := NewFileStorage(tempFile.Name())
 	assert.NoError(t, err)
 
-	url, found := fs.Load("unknownID")
-	assert.False(t, found)
+	url, foundErr := fs.Load("testID")
+	assert.ErrorIs(t, foundErr, ErrURLNotFound)
 	assert.Empty(t, url)
 }
 

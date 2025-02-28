@@ -24,7 +24,7 @@ func NewURLShortener(store storage.Storager) *URLShortener {
 }
 
 // Shorten создает короткий идентификатор для ссылки по userID
-// Возвращает сам идентификатор и флаг conflict (указатель ошибки - дубликат ссылки или другая проблема)
+// Возвращает сам идентификатор и ошибку (дубликат ссылки или другая проблема)
 func (us *URLShortener) Shorten(originalURL, userID string) (string, bool) {
 	for {
 		id := generateID()
@@ -71,9 +71,14 @@ func (us *URLShortener) ShortenBatch(urls map[string]string, userID string) map[
 	return result
 }
 
-// Retrieve юзаем стор чтобы вытащить данные по идентификатору и возвращаем + ок
-func (us *URLShortener) Retrieve(id string) (string, bool) {
-	return us.store.Load(id)
+// Retrieve юзаем стор, чтобы вытащить данные по идентификатору и возвращаем + ok
+// Если ссылка "удалена", вернем ErrURLDeleted
+func (us *URLShortener) Retrieve(id string) (string, error) {
+	url, err := us.store.Load(id)
+	if err != nil {
+		return "", err
+	}
+	return url, nil
 }
 
 // UserURLs возвращает все ссылки по userID

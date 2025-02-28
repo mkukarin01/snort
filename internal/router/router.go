@@ -14,7 +14,7 @@ import (
 )
 
 // NewRouter - создаем роутер chi
-func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
+func NewRouter(cfg *config.Config, db storage.Storager, deleter *service.URLDeleter) http.Handler {
 	shortener := service.NewURLShortener(db)
 	r := chi.NewRouter()
 
@@ -66,6 +66,11 @@ func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
 		// возвращаем все ссылки пользователя
 		private.Get("/api/user/urls", func(w http.ResponseWriter, r *http.Request) {
 			handlers.HandleUserURLs(w, r, shortener, cfg.BaseURL)
+		})
+
+		// удаляем ссылки пользователя (асинхронный процесс)
+		private.Delete("/api/user/urls", func(w http.ResponseWriter, r *http.Request) {
+			handlers.HandleDeleteUserURLs(w, r, deleter)
 		})
 	})
 

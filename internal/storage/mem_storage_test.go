@@ -14,8 +14,8 @@ func TestMemoryStorage_SaveLoad(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Загружаем обратно
-	url, found := ms.Load("testKey")
-	assert.True(t, found)
+	url, foundErr := ms.Load("testKey")
+	assert.Nil(t, foundErr)
 	assert.Equal(t, "http://ya.ru", url)
 }
 
@@ -24,8 +24,8 @@ func TestMemoryStorage_NotFound(t *testing.T) {
 	ms := NewMemoryStorage()
 
 	// Загружаем несуществующий ключ
-	url, found := ms.Load("missing")
-	assert.False(t, found)
+	url, foundErr := ms.Load("missing")
+	assert.ErrorIs(t, foundErr, ErrURLNotFound)
 	assert.Empty(t, url)
 }
 

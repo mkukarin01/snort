@@ -32,13 +32,14 @@ func NewDatabase(dsn string) (*Database, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	// создаем таблицу с уникальными полями short_id и original_url + user_id
+	// создаем таблицу с уникальными полями short_id и original_url + user_id + is_deleted
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS urls (
 			id SERIAL PRIMARY KEY,
 			short_id VARCHAR(8) UNIQUE NOT NULL,
 			original_url TEXT UNIQUE NOT NULL,
-			user_id TEXT NOT NULL
+			user_id TEXT NOT NULL,
+			is_deleted BOOLEAN NOT NULL DEFAULT false
 		)
 	`)
 	if err != nil {
@@ -70,7 +71,7 @@ func (d *Database) Close() error {
 	return d.db.Close()
 }
 
-// Save - старый метод сохранения, подкинем пустой uid чтобы потом развлекаться на дебаге
+// Save - старый метод сохранения, подкинем пустой uid
 func (d *Database) Save(id, url string) error {
 	return d.SaveUserURL("", id, url)
 }
@@ -80,19 +81,34 @@ func (d *Database) SaveBatch(urls map[string]string) error {
 	return d.SaveBatchUserURLs("", urls)
 }
 
-// Load - загружаеся f8
-func (d *Database) Load(id string) (string, bool) {
-	// для нул базы - ничего не возвращаем
+// Load - загружаем ссылку по short_id, проверяем флаг удаления
+func (d *Database) Load(id string) (string, error) {
 	if d == nil || d.db == nil {
-		return "", false
+		return "", ErrURLNotFound
 	}
 
-	var url string
-	err := d.db.QueryRow("SELECT original_url FROM urls WHERE short_id = $1", id).Scan(&url)
-	if err != nil {
-		return "", false
+	var (
+		url       string
+		isDeleted bool
+	)
+
+	err := d.db.QueryRow(`
+		SELECT original_url, is_deleted
+		FROM urls
+		WHERE short_id = $1
+	`, id).Scan(&url, &isDeleted)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrURLNotFound
 	}
-	return url, true
+	if err != nil {
+		return "", err
+	}
+	if isDeleted {
+		return "", ErrURLDeleted
+	}
+
+	return url, nil
 }
 
 // FindIDByURL находит short_id по original_url
@@ -201,7 +217,7 @@ func (d *Database) GetUserURLs(userID string) ([]UserURL, error) {
 	rows, err := d.db.Query(`
 		SELECT short_id, original_url
 		FROM urls
-		WHERE user_id = $1
+		WHERE user_id = $1 AND is_deleted = false
 	`, userID)
 	if err != nil {
 		return nil, err
@@ -222,4 +238,30 @@ func (d *Database) GetUserURLs(userID string) ([]UserURL, error) {
 	}
 
 	return result, nil
+}
+
+// MarkUserURLsDeleted - batch update для uid и списка shortIDs
+func (d *Database) MarkUserURLsDeleted(userID string, shortIDs []string) error {
+	if d == nil || d.db == nil {
+		return errors.New("database connection is nil")
+	}
+
+	if len(shortIDs) == 0 {
+		return nil
+	}
+
+	query := `
+		UPDATE urls
+		SET is_deleted = true
+		WHERE user_id = $1
+		  AND short_id = ANY($2)
+	`
+	_, err := d.db.Exec(query, userID, pq.StringArray(shortIDs))
+	if err != nil {
+		log.Printf("DB Error: MarkUserURLsDeleted userID=%s, shortIDs=%v, err=%v",
+			userID, shortIDs, err)
+		return err
+	}
+
+	return nil
 }

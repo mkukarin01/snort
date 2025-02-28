@@ -5,17 +5,24 @@ import (
 	"sync"
 )
 
+// memEntry локальная структура хранения
+type memEntry struct {
+	originalURL string
+	userID      string
+	isDeleted   bool
+}
+
 // MemoryStorage реализация in-memory хранилища
 type MemoryStorage struct {
 	sync.RWMutex
-	store     map[string]string   // старое поле: short -> original
-	userLinks map[string][]string // user->[]shortIDs
+	store     map[string]*memEntry // short -> данные
+	userLinks map[string][]string  // user->[]shortIDs
 }
 
 // NewMemoryStorage запускатор "соединения" с памятью, аналогия на NewDatabase
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
-		store:     make(map[string]string),
+		store:     make(map[string]*memEntry),
 		userLinks: make(map[string][]string),
 	}
 }
@@ -30,19 +37,25 @@ func (ms *MemoryStorage) SaveBatch(urls map[string]string) error {
 	return ms.SaveBatchUserURLs("", urls)
 }
 
-func (ms *MemoryStorage) Load(id string) (string, bool) {
+func (ms *MemoryStorage) Load(id string) (string, error) {
 	ms.RLock()
 	defer ms.RUnlock()
-	url, exists := ms.store[id]
-	return url, exists
+	entry, exists := ms.store[id]
+	if !exists {
+		return "", ErrURLNotFound
+	}
+	if entry.isDeleted {
+		return "", ErrURLDeleted
+	}
+	return entry.originalURL, nil
 }
 
 func (ms *MemoryStorage) FindIDByURL(url string) (string, bool) {
 	ms.RLock()
 	defer ms.RUnlock()
-	for id, storedURL := range ms.store {
-		if storedURL == url {
-			return id, true
+	for shortID, entry := range ms.store {
+		if entry.originalURL == url {
+			return shortID, true
 		}
 	}
 	return "", false
@@ -60,18 +73,23 @@ func (ms *MemoryStorage) SaveUserURL(userID, shortID, originalURL string) error 
 	defer ms.Unlock()
 
 	// если какой-то другой shortID уже хранит этот url - вернём конфликт
-	for existID, existURL := range ms.store {
-		if existURL == originalURL && existID != shortID {
+	for existID, entry := range ms.store {
+		if entry.originalURL == originalURL && existID != shortID {
 			return ErrURLConflict
 		}
 	}
 
 	// если такой shortID уже есть - это конфликт по short_id
-	if oldURL, ok := ms.store[shortID]; ok && oldURL != originalURL {
+	if oldEntry, ok := ms.store[shortID]; ok && oldEntry.originalURL != originalURL {
 		return ErrShortIDConflict
 	}
 
-	ms.store[shortID] = originalURL
+	ms.store[shortID] = &memEntry{
+		originalURL: originalURL,
+		userID:      userID,
+		isDeleted:   false,
+	}
+
 	if userID != "" {
 		ms.userLinks[userID] = append(ms.userLinks[userID], shortID)
 	}
@@ -84,7 +102,11 @@ func (ms *MemoryStorage) SaveBatchUserURLs(userID string, batch map[string]strin
 	defer ms.Unlock()
 
 	for shortID, originalURL := range batch {
-		ms.store[shortID] = originalURL
+		ms.store[shortID] = &memEntry{
+			originalURL: originalURL,
+			userID:      userID,
+			isDeleted:   false,
+		}
 		if userID != "" {
 			ms.userLinks[userID] = append(ms.userLinks[userID], shortID)
 		}
@@ -103,8 +125,23 @@ func (ms *MemoryStorage) GetUserURLs(userID string) ([]UserURL, error) {
 
 	var result []UserURL
 	for _, sid := range shortIDs {
-		orig := ms.store[sid]
-		result = append(result, UserURL{ShortURL: sid, OriginalURL: orig})
+		entry := ms.store[sid]
+		if entry != nil && !entry.isDeleted {
+			result = append(result, UserURL{ShortURL: sid, OriginalURL: entry.originalURL})
+		}
 	}
 	return result, nil
+}
+
+func (ms *MemoryStorage) MarkUserURLsDeleted(userID string, shortIDs []string) error {
+	ms.Lock()
+	defer ms.Unlock()
+
+	for _, sid := range shortIDs {
+		entry, exists := ms.store[sid]
+		if exists && entry.userID == userID {
+			entry.isDeleted = true
+		}
+	}
+	return nil
 }
