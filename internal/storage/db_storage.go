@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/lib/pq"
@@ -110,6 +111,7 @@ func (d *Database) FindIDByURL(url string) (string, bool) {
 }
 
 // -- методы с юид --
+// NOTE: SaveUserURL и SaveBatchUserURLs - используют обычный лог, потому что мне лень доработать логгер
 
 // SaveUserURL - сохраняемся с uid
 func (d *Database) SaveUserURL(userID, shortID, originalURL string) error {
@@ -135,8 +137,14 @@ func (d *Database) SaveUserURL(userID, shortID, originalURL string) error {
 				}
 			}
 		}
-		return err
+
+		log.Printf("DB Error: can't insert shortID=%s, originalURL=%s, userID=%s: %v",
+			shortID, originalURL, userID, err)
+		return fmt.Errorf("failed to insert userURL: %w", err)
 	}
+
+	log.Printf("DB Info: successfully inserted shortID=%s, originalURL=%s, userID=%s",
+		shortID, originalURL, userID)
 
 	return nil
 }
@@ -149,29 +157,39 @@ func (d *Database) SaveBatchUserURLs(userID string, urls map[string]string) erro
 
 	tx, err := d.db.Begin()
 	if err != nil {
+		log.Printf("DB Error: can't begin transaction for userID=%s: %v", userID, err)
 		return err
 	}
 
 	stmt, err := tx.Prepare(`
 		INSERT INTO urls (short_id, original_url, user_id) 
-		VALUES ($1, $2, $3) 
+		VALUES ($1, $2, $3)
 		ON CONFLICT DO NOTHING
 	`)
 	if err != nil {
 		tx.Rollback()
+		log.Printf("DB Error: can't prepare statement for userID=%s: %v", userID, err)
 		return err
 	}
 	defer stmt.Close()
 
-	for id, url := range urls {
-		_, err := stmt.Exec(id, url)
-		if err != nil {
+	for shortID, originalURL := range urls {
+		_, execErr := stmt.Exec(shortID, originalURL, userID)
+		if execErr != nil {
 			tx.Rollback()
-			return err
+			log.Printf("DB Error: can't insert shortID=%s, originalURL=%s, userID=%s: %v",
+				shortID, originalURL, userID, execErr)
+			return fmt.Errorf("failed batch insert: %w", execErr)
 		}
 	}
 
-	return tx.Commit()
+	if commitErr := tx.Commit(); commitErr != nil {
+		log.Printf("DB Error: can't commit transaction for userID=%s: %v", userID, commitErr)
+		return commitErr
+	}
+
+	log.Printf("DB Info: successfully inserted batch of %d URLs for userID=%s", len(urls), userID)
+	return nil
 }
 
 // GetUserURLs возвращает всё для заданного userID

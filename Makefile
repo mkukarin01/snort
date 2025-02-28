@@ -1,6 +1,9 @@
 run:
 	go run cmd/shortener/main.go
 
+build:
+	go build cmd/shortener/main.go 
+
 test:
 	go test ./...
 
