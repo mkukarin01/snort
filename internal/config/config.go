@@ -106,16 +106,3 @@ func (c *Config) Validate() error {
 	}
 	return nil
 }
-
-func (c *Config) Print() {
-	fmt.Println("=== Current Configuration ===")
-	fmt.Printf("Port: %s\n", c.Port)
-	fmt.Printf("BaseDomain: %s\n", c.BaseDomain)
-	fmt.Printf("BasePath: %s\n", c.BasePath)
-	fmt.Printf("Address: %s\n", c.Address)
-	fmt.Printf("BaseURL: %s\n", c.BaseURL)
-	fmt.Printf("FileStoragePath: %s\n", c.FileStoragePath)
-	fmt.Printf("DatabaseDSN: %s\n", c.DatabaseDSN)
-	fmt.Printf("SecretKey: %s\n", c.SecretKey)
-	fmt.Println("=============================")
-}
