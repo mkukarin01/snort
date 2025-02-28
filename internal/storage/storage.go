@@ -14,14 +14,26 @@ var (
 	ErrShortIDConflict = errors.New("short_id conflict")
 )
 
+// UserURL - для возврата набора ссылок конкретного пользователя
+type UserURL struct {
+	ShortURL    string
+	OriginalURL string
+}
+
 // Storager - интерфейс для работы с бд или другим хранилищем
 type Storager interface {
 	Ping() error
 	Close() error
+	// Старые методы (без userID)
 	Save(id, url string) error
 	SaveBatch(urls map[string]string) error
 	Load(id string) (string, bool)
 	FindIDByURL(url string) (string, bool)
+
+	// Новые методы для работы с userID
+	SaveUserURL(userID, shortID, originalURL string) error
+	SaveBatchUserURLs(userID string, batch map[string]string) error
+	GetUserURLs(userID string) ([]UserURL, error)
 }
 
 // NewStorage определяет используемое хранилище

@@ -28,22 +28,31 @@ func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
 	// есть какие-то встроенные мидлвари, позовем их
 	r.Use(ChiMiddleware.Recoverer)
 
+	// мидлварь аутентификации
+	r.Use(InternalMiddleware.UserAuthMiddleware(cfg))
+
+	// ping
 	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandlePing(w, r, db)
 	})
 
+	// короткие ссылки
 	r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandleShorten(w, r, shortener, cfg.BaseURL)
 	})
-
 	r.Post("/api/shorten", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandleShortenJSON(w, r, shortener, cfg.BaseURL)
 	})
-
 	r.Post("/api/shorten/batch", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandleShortenBatch(w, r, shortener, cfg.BaseURL)
 	})
 
+	// возвращаем все ссылки пользователя
+	r.Get("/api/user/urls", func(w http.ResponseWriter, r *http.Request) {
+		handlers.HandleUserURLs(w, r, shortener)
+	})
+
+	// редирект
 	if cfg.BasePath == "" {
 		r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
 			handlers.HandleRedirect(w, r, shortener)

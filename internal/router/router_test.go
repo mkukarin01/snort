@@ -40,6 +40,7 @@ func TestRouter_Routes(t *testing.T) {
 	mockDB := storage.NewMockStorager(ctrl)
 	mockDB.EXPECT().Ping().Return(nil)
 	mockDB.EXPECT().Load("anyShortID").Return("http://ya.ru", true)
+	mockDB.EXPECT().GetUserURLs(gomock.Any()).Return([]storage.UserURL{}, nil)
 
 	r := NewRouter(cfg, mockDB)
 
@@ -49,6 +50,8 @@ func TestRouter_Routes(t *testing.T) {
 	}{
 		{"POST", "/"},
 		{"POST", "/api/shorten"},
+		{"POST", "/api/shorten/batch"},
+		{"GET", "/api/user/urls"},
 		{"GET", "/anyShortID"},
 		{"GET", "/ping"},
 	}

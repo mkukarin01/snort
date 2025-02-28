@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/mkukarin01/snort/internal/middleware"
 	"github.com/mkukarin01/snort/internal/service"
 	"github.com/mkukarin01/snort/internal/storage"
 )
@@ -29,7 +30,6 @@ func HandleShorten(w http.ResponseWriter, r *http.Request, shortener *service.UR
 		return
 	}
 
-	// создам переменную, чтобы потом к ней обращаться несколько раз
 	urlStr := string(bodyBytes)
 	parsedURL, err := url.ParseRequestURI(urlStr)
 	if err != nil {
@@ -42,7 +42,10 @@ func HandleShorten(w http.ResponseWriter, r *http.Request, shortener *service.UR
 		return
 	}
 
-	id, conflict := shortener.Shorten(urlStr)
+	// достанем userID из контекста, если он там есть
+	userID := middleware.GetUserIDFromContext(r.Context())
+
+	id, conflict := shortener.Shorten(urlStr, userID)
 	shortURL := baseURL + "/" + id
 
 	if conflict {
@@ -70,20 +73,21 @@ func HandleShortenJSON(w http.ResponseWriter, r *http.Request, shortener *servic
 		return
 	}
 
-	id, conflict := shortener.Shorten(req.URL)
+	userID := middleware.GetUserIDFromContext(r.Context())
+
+	id, conflict := shortener.Shorten(req.URL, userID)
 	shortURL := baseURL + "/" + id
 
 	resp := URLResponse{Result: shortURL}
 
+	w.Header().Set("Content-Type", "application/json")
 	if conflict {
 		// url есть в бд - отдаем 409 Conflict
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(resp)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)
 }
@@ -126,7 +130,8 @@ func HandleShortenBatch(w http.ResponseWriter, r *http.Request, shortener *servi
 		urls[item.CorrelationID] = item.OriginalURL
 	}
 
-	shortened := shortener.ShortenBatch(urls)
+	userID := middleware.GetUserIDFromContext(r.Context())
+	shortened := shortener.ShortenBatch(urls, userID)
 
 	var res []BatchResponse
 	for correlationID, shortID := range shortened {
@@ -167,4 +172,26 @@ func HandlePing(w http.ResponseWriter, r *http.Request, db storage.Storager) {
 
 	// 200
 	w.WriteHeader(http.StatusOK)
+}
+
+// HandleUserURLs - обработчик для GET /api/user/urls
+func HandleUserURLs(w http.ResponseWriter, r *http.Request, shortener *service.URLShortener) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userURLs, err := shortener.UserURLs(userID)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	if len(userURLs) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(userURLs)
 }

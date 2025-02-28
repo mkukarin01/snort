@@ -18,6 +18,7 @@ type Config struct {
 	BaseURL         string
 	FileStoragePath string
 	DatabaseDSN     string
+	SecretKey       string
 }
 
 // NewConfig запускаем конфигурацию, наполняем структурку, данными из командой строки
@@ -53,6 +54,8 @@ func NewConfig() *Config {
 	if envDatabaseDSN != "" {
 		cfg.DatabaseDSN = envDatabaseDSN
 	}
+	// настроим секретный ключ, вдруг попросят его передавать
+	cfg.SecretKey = "supersecretkey"
 
 	// приводим порт к виду порта 8080 например
 	if cfg.Port != "" && cfg.Port != "8080" {
