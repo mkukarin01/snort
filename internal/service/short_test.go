@@ -67,7 +67,7 @@ func TestURLShortener_RetrieveUserURLs(t *testing.T) {
 	// id, _ := shortener.Shorten(originalURL, uid)
 	shortener.Shorten(originalURL, uid)
 
-	urls, _ := shortener.UserURLs(uid)
+	urls, _ := shortener.UserURLs(uid, "http://bar.foo")
 
 	assert.Len(t, urls, 1)
 }

@@ -65,7 +65,7 @@ func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
 
 		// возвращаем все ссылки пользователя
 		private.Get("/api/user/urls", func(w http.ResponseWriter, r *http.Request) {
-			handlers.HandleUserURLs(w, r, shortener)
+			handlers.HandleUserURLs(w, r, shortener, cfg.BaseURL)
 		})
 	})
 

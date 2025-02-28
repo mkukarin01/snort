@@ -77,7 +77,7 @@ func (us *URLShortener) Retrieve(id string) (string, bool) {
 }
 
 // UserURLs возвращает все ссылки по userID
-func (us *URLShortener) UserURLs(userID string) ([]UserURL, error) {
+func (us *URLShortener) UserURLs(userID string, baseUrl string) ([]UserURL, error) {
 	urls, err := us.store.GetUserURLs(userID)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (us *URLShortener) UserURLs(userID string) ([]UserURL, error) {
 	results := make([]UserURL, 0, len(urls))
 	for _, u := range urls {
 		results = append(results, UserURL{
-			ShortURL:    u.ShortURL,
+			ShortURL:    baseUrl + "/" + u.ShortURL,
 			OriginalURL: u.OriginalURL,
 		})
 	}

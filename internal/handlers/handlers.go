@@ -175,14 +175,14 @@ func HandlePing(w http.ResponseWriter, r *http.Request, db storage.Storager) {
 }
 
 // HandleUserURLs - обработчик для GET /api/user/urls
-func HandleUserURLs(w http.ResponseWriter, r *http.Request, shortener *service.URLShortener) {
+func HandleUserURLs(w http.ResponseWriter, r *http.Request, shortener *service.URLShortener, baseURL string) {
 	userID := middleware.GetUserIDFromContext(r.Context())
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	userURLs, err := shortener.UserURLs(userID)
+	userURLs, err := shortener.UserURLs(userID, baseURL)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
