@@ -181,8 +181,8 @@ func (d *Database) GetUserURLs(userID string) ([]UserURL, error) {
 	}
 
 	rows, err := d.db.Query(`
-		SELECT short_id, original_url 
-		FROM urls 
+		SELECT short_id, original_url
+		FROM urls
 		WHERE user_id = $1
 	`, userID)
 	if err != nil {
@@ -198,5 +198,10 @@ func (d *Database) GetUserURLs(userID string) ([]UserURL, error) {
 		}
 		result = append(result, UserURL{ShortURL: s, OriginalURL: o})
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return result, nil
 }

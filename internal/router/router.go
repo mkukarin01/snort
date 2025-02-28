@@ -28,28 +28,10 @@ func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
 	// есть какие-то встроенные мидлвари, позовем их
 	r.Use(ChiMiddleware.Recoverer)
 
-	// мидлварь аутентификации
-	r.Use(InternalMiddleware.UserAuthMiddleware(cfg))
-
+	// публичные маршруты
 	// ping
 	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandlePing(w, r, db)
-	})
-
-	// короткие ссылки
-	r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-		handlers.HandleShorten(w, r, shortener, cfg.BaseURL)
-	})
-	r.Post("/api/shorten", func(w http.ResponseWriter, r *http.Request) {
-		handlers.HandleShortenJSON(w, r, shortener, cfg.BaseURL)
-	})
-	r.Post("/api/shorten/batch", func(w http.ResponseWriter, r *http.Request) {
-		handlers.HandleShortenBatch(w, r, shortener, cfg.BaseURL)
-	})
-
-	// возвращаем все ссылки пользователя
-	r.Get("/api/user/urls", func(w http.ResponseWriter, r *http.Request) {
-		handlers.HandleUserURLs(w, r, shortener)
 	})
 
 	// редирект
@@ -64,6 +46,28 @@ func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
 			})
 		})
 	}
+
+	// приватные маршруты
+	r.Group(func(private chi.Router) {
+		// мидлварь аутентификации
+		private.Use(InternalMiddleware.UserAuthMiddleware(cfg))
+
+		// короткие ссылки
+		private.Post("/", func(w http.ResponseWriter, r *http.Request) {
+			handlers.HandleShorten(w, r, shortener, cfg.BaseURL)
+		})
+		private.Post("/api/shorten", func(w http.ResponseWriter, r *http.Request) {
+			handlers.HandleShortenJSON(w, r, shortener, cfg.BaseURL)
+		})
+		private.Post("/api/shorten/batch", func(w http.ResponseWriter, r *http.Request) {
+			handlers.HandleShortenBatch(w, r, shortener, cfg.BaseURL)
+		})
+
+		// возвращаем все ссылки пользователя
+		private.Get("/api/user/urls", func(w http.ResponseWriter, r *http.Request) {
+			handlers.HandleUserURLs(w, r, shortener)
+		})
+	})
 
 	return r
 }
