@@ -12,6 +12,8 @@ import (
 func Run() {
 	cfg := config.NewConfig()
 
+	cfg.Print()
+
 	if err := cfg.Validate(); err != nil {
 		log.Fatalf("Invalid configuration: %v", err)
 	}
