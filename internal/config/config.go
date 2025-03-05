@@ -17,6 +17,8 @@ type Config struct {
 	Address         string
 	BaseURL         string
 	FileStoragePath string
+	DatabaseDSN     string
+	SecretKey       string
 }
 
 // NewConfig запускаем конфигурацию, наполняем структурку, данными из командой строки
@@ -29,11 +31,13 @@ func NewConfig() *Config {
 	envPort := os.Getenv("SERVER_ADDRESS")
 	envBasePath := os.Getenv("BASE_URL")
 	envFileStoragePath := os.Getenv("FILE_STORAGE_PATH")
+	envDatabaseDSN := os.Getenv("DATABASE_DSN")
 
 	// аргументы/флаги/etc
 	flag.StringVar(&cfg.Port, "a", "8080", "Port for HTTP server")
 	flag.StringVar(&cfg.BasePath, "b", "", "Base path for shortened links")
 	flag.StringVar(&cfg.FileStoragePath, "f", "./storage.json", "Path to file storage for shortened links")
+	flag.StringVar(&cfg.DatabaseDSN, "d", "", "Database connection string (PostgreSQL)")
 
 	flag.Parse()
 
@@ -47,6 +51,11 @@ func NewConfig() *Config {
 	if envFileStoragePath != "" {
 		cfg.FileStoragePath = envFileStoragePath
 	}
+	if envDatabaseDSN != "" {
+		cfg.DatabaseDSN = envDatabaseDSN
+	}
+	// настроим секретный ключ, вдруг попросят его передавать
+	cfg.SecretKey = "supersecretkey"
 
 	// приводим порт к виду порта 8080 например
 	if cfg.Port != "" && cfg.Port != "8080" {
@@ -71,9 +80,9 @@ func NewConfig() *Config {
 		if err != nil {
 			fmt.Printf("Invalid URL format for BasePath, fallback to default: %v\n", err)
 			cfg.BasePath = "/"
+		} else {
+			cfg.BasePath = parsedURL.Path
 		}
-
-		cfg.BasePath = parsedURL.Path
 	}
 
 	if cfg.BasePath != "" && !strings.HasPrefix(cfg.BasePath, "/") {
