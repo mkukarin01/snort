@@ -50,7 +50,7 @@ func NewDatabase(dsn string) (*Database, error) {
 func (d *Database) Ping() error {
 	// для нул базы - вернем ошибку
 	if d == nil || d.db == nil {
-		return ErrDbConnection
+		return ErrDBConnection
 	}
 
 	return d.db.Ping()
@@ -134,7 +134,7 @@ func (d *Database) SaveBatch(urls map[string]string) error {
 func (d *Database) Load(id string) (string, error) {
 	// для нул базы - ничего не возвращаем
 	if d == nil || d.db == nil {
-		return "", ErrDbConnection
+		return "", ErrDBConnection
 	}
 
 	var url string
@@ -153,7 +153,7 @@ func (d *Database) Load(id string) (string, error) {
 // FindIDByURL находит short_id по original_url
 func (d *Database) FindIDByURL(url string) (string, error) {
 	if d == nil || d.db == nil {
-		return "", ErrDbConnection
+		return "", ErrDBConnection
 	}
 
 	var shortID string

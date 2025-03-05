@@ -48,7 +48,7 @@ func HandleShorten(w http.ResponseWriter, r *http.Request, shortener *service.UR
 
 	if shortErr != nil {
 		// конфликт - возвращаем 409
-		if errors.Is(shortErr, storage.ErrShortIDConflict) {
+		if errors.Is(shortErr, storage.ErrURLConflict) {
 			w.WriteHeader(http.StatusConflict)
 			w.Write([]byte(shortURL))
 			return
@@ -86,25 +86,27 @@ func HandleShortenJSON(w http.ResponseWriter, r *http.Request, shortener *servic
 
 	resp := URLResponse{Result: shortURL}
 
+	w.Header().Set("Content-Type", "application/json")
+
 	if shortErr != nil {
 		// конфликт - возвращаем 409
-		if errors.Is(shortErr, storage.ErrShortIDConflict) {
-			w.Header().Set("Content-Type", "application/json")
+		if errors.Is(shortErr, storage.ErrURLConflict) {
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(resp)
 			return
 		}
 		// нет - возвращаем 404
 		if errors.Is(shortErr, storage.ErrURLNotFound) {
-			http.Error(w, "URL not found", http.StatusNotFound)
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(resp)
 			return
 		}
 		// 400
-		http.Error(w, "URL problem", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)
 }

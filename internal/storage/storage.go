@@ -8,8 +8,8 @@ import (
 
 // пакетные переменные-ошибки для удобства определения типа ошибки
 var (
-	// ErrDbConnection - проблема связи с бд
-	ErrDbConnection = errors.New("db connection issue")
+	// ErrDBConnection - проблема связи с бд
+	ErrDBConnection = errors.New("db connection issue")
 	// ErrURLConflict - original_url уже есть в базе
 	ErrURLConflict = errors.New("url conflict")
 	// ErrShortIDConflict - короткий short_id уже занят
