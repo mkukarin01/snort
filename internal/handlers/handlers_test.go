@@ -9,11 +9,13 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mkukarin01/snort/internal/config"
 	"github.com/mkukarin01/snort/internal/service"
+	"github.com/mkukarin01/snort/internal/storage"
 )
 
 // **** utility ****//
@@ -32,7 +34,8 @@ func createTestRouter(s *service.URLShortener) http.Handler {
 	if s != nil {
 		r = createRouter(s, cfg)
 	} else {
-		shortener := service.NewURLShortener("../../storage.json")
+		ms := storage.NewMemoryStorage()
+		shortener := service.NewURLShortener(ms)
 		r = createRouter(shortener, cfg)
 	}
 
@@ -101,8 +104,9 @@ func TestHandler_ShortenerPlain(t *testing.T) {
 
 // Проверка GetShortURL GET /{id}
 func TestHandler_GetShortURL(t *testing.T) {
-	shortener := service.NewURLShortener("../../storage.json")
-	id := shortener.Shorten("https://ya.ru")
+	ms := storage.NewMemoryStorage()
+	shortener := service.NewURLShortener(ms)
+	id, _ := shortener.Shorten("https://ya.ru")
 	url := "/" + id
 
 	r := createTestRouter(shortener)
@@ -116,4 +120,53 @@ func TestHandler_GetShortURL(t *testing.T) {
 
 	require.Equal(t, http.StatusTemporaryRedirect, res.StatusCode)
 	assert.Equal(t, "https://ya.ru", res.Header.Get("Location"))
+}
+
+// Проверка TestHandlePing_Success GET /ping 200
+func TestHandlePing_Success(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// мокаем бд
+	mockDB := storage.NewMockStorager(ctrl)
+	mockDB.EXPECT().Ping().Return(nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	rec := httptest.NewRecorder()
+
+	HandlePing(rec, req, mockDB)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", rec.Code)
+	}
+}
+
+// Проверка TestHandlePing_NoDB GET /ping 500
+func TestHandlePing_NoDB(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	rec := httptest.NewRecorder()
+
+	HandlePing(rec, req, nil)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected status 500, got %d", rec.Code)
+	}
+}
+
+// Проверка TestHandlePing_FailedPing GET /ping 500
+func TestHandlePing_FailedPing(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockDB := storage.NewMockStorager(ctrl)
+	mockDB.EXPECT().Ping().Return(assert.AnError)
+
+	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	rec := httptest.NewRecorder()
+
+	HandlePing(rec, req, mockDB)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected status 500, got %d", rec.Code)
+	}
 }
