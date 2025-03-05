@@ -60,15 +60,15 @@ func (fs *FileStorage) Load(id string) (string, error) {
 	return entry.OriginalURL, nil
 }
 
-func (fs *FileStorage) FindIDByURL(url string) (string, bool) {
+func (fs *FileStorage) FindIDByURL(url string) (string, error) {
 	fs.RLock()
 	defer fs.RUnlock()
 	for id, entry := range fs.store {
 		if entry.OriginalURL == url {
-			return id, true
+			return id, nil
 		}
 	}
-	return "", false
+	return "", ErrURLNotFound
 }
 
 func (fs *FileStorage) Ping() error  { return errors.New("there is no connection: fs001") }

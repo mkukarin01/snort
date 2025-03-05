@@ -8,6 +8,8 @@ import (
 
 // пакетные переменные-ошибки для удобства определения типа ошибки
 var (
+	// ErrDBConnection - проблема связи с бд
+	ErrDBConnection = errors.New("db connection issue")
 	// ErrURLConflict - original_url уже есть в базе
 	ErrURLConflict = errors.New("url conflict")
 	// ErrShortIDConflict - короткий short_id уже занят
@@ -33,7 +35,7 @@ type Storager interface {
 	Save(id, url string) error
 	SaveBatch(urls map[string]string) error
 	Load(id string) (string, error)
-	FindIDByURL(url string) (string, bool)
+	FindIDByURL(url string) (string, error)
 
 	// Новые методы для работы с userID
 	SaveUserURL(userID, shortID, originalURL string) error

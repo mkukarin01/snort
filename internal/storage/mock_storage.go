@@ -48,11 +48,11 @@ func (mr *MockStoragerMockRecorder) Close() *gomock.Call {
 }
 
 // FindIDByURL mocks base method.
-func (m *MockStorager) FindIDByURL(url string) (string, bool) {
+func (m *MockStorager) FindIDByURL(url string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindIDByURL", url)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(bool)
+	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 

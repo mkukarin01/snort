@@ -50,15 +50,15 @@ func (ms *MemoryStorage) Load(id string) (string, error) {
 	return entry.originalURL, nil
 }
 
-func (ms *MemoryStorage) FindIDByURL(url string) (string, bool) {
+func (ms *MemoryStorage) FindIDByURL(url string) (string, error) {
 	ms.RLock()
 	defer ms.RUnlock()
 	for shortID, entry := range ms.store {
 		if entry.originalURL == url {
-			return shortID, true
+			return shortID, nil
 		}
 	}
-	return "", false
+	return "", ErrURLNotFound
 }
 
 // ну, тут тоже как бы странно было бы закрывать память, но можно че-нить

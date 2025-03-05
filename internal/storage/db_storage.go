@@ -55,7 +55,7 @@ func NewDatabase(dsn string) (*Database, error) {
 func (d *Database) Ping() error {
 	// для нул базы - вернем ошибку
 	if d == nil || d.db == nil {
-		return errors.New("database connection is nil")
+		return ErrDBConnection
 	}
 
 	return d.db.Ping()
@@ -65,6 +65,7 @@ func (d *Database) Ping() error {
 func (d *Database) Close() error {
 	// для нул базы - вернем ошибку
 	if d == nil || d.db == nil {
+		// эта ошибка специфична только для подключения к реальной базе
 		return errors.New("database connection is already closed or uninitialized")
 	}
 
@@ -84,7 +85,7 @@ func (d *Database) SaveBatch(urls map[string]string) error {
 // Load - загружаем ссылку по short_id, проверяем флаг удаления
 func (d *Database) Load(id string) (string, error) {
 	if d == nil || d.db == nil {
-		return "", ErrURLNotFound
+		return "", ErrDBConnection
 	}
 
 	var (
@@ -112,18 +113,21 @@ func (d *Database) Load(id string) (string, error) {
 }
 
 // FindIDByURL находит short_id по original_url
-func (d *Database) FindIDByURL(url string) (string, bool) {
+func (d *Database) FindIDByURL(url string) (string, error) {
 	if d == nil || d.db == nil {
-		return "", false
+		return "", ErrDBConnection
 	}
 
 	var shortID string
 	err := d.db.QueryRow("SELECT short_id FROM urls WHERE original_url = $1", url).Scan(&shortID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrURLNotFound
+	}
 	if err != nil {
-		return "", false
+		return "", err
 	}
 
-	return shortID, true
+	return shortID, nil
 }
 
 // -- методы с юид --

@@ -9,8 +9,8 @@ import (
 
 // проверил что сократилось и получилось тоже самое
 func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
-	storage := storage.NewMemoryStorage()
-	shortener := NewURLShortener(storage)
+	store := storage.NewMemoryStorage()
+	shortener := NewURLShortener(store)
 	uid := "foo"
 
 	originalURL := "https://ya.ru"
@@ -21,7 +21,7 @@ func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
 	assert.Equal(t, originalURL, retrievedURL)
 
 	nextID, conflict := shortener.Shorten(originalURL, uid)
-	assert.True(t, conflict)
+	assert.ErrorIs(t, conflict, storage.ErrURLConflict)
 	assert.Equal(t, id, nextID)
 }
 

@@ -32,7 +32,7 @@ func TestDatabase_Ping_NilDB(t *testing.T) {
 	var db *Database
 	err := db.Ping()
 	assert.Error(t, err)
-	assert.Equal(t, "database connection is nil", err.Error())
+	assert.Equal(t, "db connection issue", err.Error())
 }
 
 // TestDatabase_Close_NilDB - правильное закрытие при nil

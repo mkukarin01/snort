@@ -46,13 +46,23 @@ func HandleShorten(w http.ResponseWriter, r *http.Request, shortener *service.UR
 	// достанем userID из контекста, если он там есть
 	userID := middleware.GetUserIDFromContext(r.Context())
 
-	id, conflict := shortener.Shorten(urlStr, userID)
+	id, shortErr := shortener.Shorten(urlStr, userID)
 	shortURL := baseURL + "/" + id
 
-	if conflict {
-		// url есть в бд - отдаем 409 Conflict
-		w.WriteHeader(http.StatusConflict)
-		w.Write([]byte(shortURL))
+	if shortErr != nil {
+		// конфликт - возвращаем 409
+		if errors.Is(shortErr, storage.ErrURLConflict) {
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(shortURL))
+			return
+		}
+		// нет - возвращаем 404
+		if errors.Is(shortErr, storage.ErrURLNotFound) {
+			http.Error(w, "URL not found", http.StatusNotFound)
+			return
+		}
+		// 400
+		http.Error(w, "URL problem", http.StatusBadRequest)
 		return
 	}
 
@@ -76,15 +86,27 @@ func HandleShortenJSON(w http.ResponseWriter, r *http.Request, shortener *servic
 
 	userID := middleware.GetUserIDFromContext(r.Context())
 
-	id, conflict := shortener.Shorten(req.URL, userID)
+	id, shortErr := shortener.Shorten(req.URL, userID)
 	shortURL := baseURL + "/" + id
 
 	resp := URLResponse{Result: shortURL}
 
 	w.Header().Set("Content-Type", "application/json")
-	if conflict {
-		// url есть в бд - отдаем 409 Conflict
-		w.WriteHeader(http.StatusConflict)
+	if shortErr != nil {
+		// конфликт - возвращаем 409
+		if errors.Is(shortErr, storage.ErrURLConflict) {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		// нет - возвращаем 404
+		if errors.Is(shortErr, storage.ErrURLNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		// 400
+		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(resp)
 		return
 	}
@@ -157,8 +179,13 @@ func HandleRedirect(w http.ResponseWriter, r *http.Request, shortener *service.U
 			http.Error(w, "URL is deleted", http.StatusGone)
 			return
 		}
+		// нет - возвращаем 404
+		if errors.Is(err, storage.ErrURLNotFound) {
+			http.Error(w, "URL not found", http.StatusNotFound)
+			return
+		}
 		// Если "не найдено" или любая другая - 400
-		http.Error(w, "URL not found", http.StatusBadRequest)
+		http.Error(w, "URL problem", http.StatusBadRequest)
 		return
 	}
 
