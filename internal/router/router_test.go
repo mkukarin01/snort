@@ -39,7 +39,7 @@ func TestRouter_Routes(t *testing.T) {
 	// мокаем стораджер
 	mockDB := storage.NewMockStorager(ctrl)
 	mockDB.EXPECT().Ping().Return(nil)
-	mockDB.EXPECT().Load("anyShortID").Return("http://ya.ru", true)
+	mockDB.EXPECT().Load("anyShortID").Return("http://ya.ru", nil)
 
 	r := NewRouter(cfg, mockDB)
 

@@ -18,25 +18,26 @@ func NewURLShortener(store storage.Storager) *URLShortener {
 }
 
 // Shorten создает короткий идентификатор для ссылки
-// Возвращает сам идентификатор и флаг conflict (указатель ошибки - дубликат ссылки или другая проблема)
-func (us *URLShortener) Shorten(originalURL string) (string, bool) {
+// Возвращает сам идентификатор и ошибку (дубликат ссылки или другая проблема)
+func (us *URLShortener) Shorten(originalURL string) (string, error) {
 	for {
 		id := generateID()
 		err := us.store.Save(id, originalURL)
 		if err == nil {
 			// успех
-			return id, false
+			return id, nil
 		}
 
 		// ошибка - разрбираемся что происходит
 		if errors.Is(err, storage.ErrURLConflict) {
-			// все уже в хранилище, найдем другой shortId и вернем 409
-			existingID, ok := us.store.FindIDByURL(originalURL)
-			if ok {
-				return existingID, true
+			// все уже в хранилище, найдем другой shortId и вернем 409 или другую ошибку
+			existingID, saveErr := us.store.FindIDByURL(originalURL)
+
+			if saveErr == nil {
+				return existingID, err
 			}
-			// fallback: если почему-то не нашли - считаем неудачей
-			return "", false
+
+			return "", saveErr
 		}
 
 		if errors.Is(err, storage.ErrShortIDConflict) {
@@ -45,7 +46,7 @@ func (us *URLShortener) Shorten(originalURL string) (string, bool) {
 		}
 
 		// Прочие ошибки - завершаем
-		return "", false
+		return "", err
 	}
 }
 
@@ -67,7 +68,7 @@ func (us *URLShortener) ShortenBatch(urls map[string]string) map[string]string {
 }
 
 // Retrieve юзаем стор чтобы вытащить данные по идентификатору и возвращаем + ок
-func (us *URLShortener) Retrieve(id string) (string, bool) {
+func (us *URLShortener) Retrieve(id string) (string, error) {
 	return us.store.Load(id)
 }
 

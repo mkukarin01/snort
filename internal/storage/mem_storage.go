@@ -53,23 +53,28 @@ func (ms *MemoryStorage) SaveBatch(urls map[string]string) error {
 	return nil
 }
 
-func (ms *MemoryStorage) Load(id string) (string, bool) {
+func (ms *MemoryStorage) Load(id string) (string, error) {
 	ms.RLock()
 	defer ms.RUnlock()
 	url, exists := ms.store[id]
-	return url, exists
+
+	if !exists {
+		return "", ErrURLNotFound
+	}
+
+	return url, nil
 }
 
 // FindIDByURL находим short_id по original_url
-func (ms *MemoryStorage) FindIDByURL(url string) (string, bool) {
+func (ms *MemoryStorage) FindIDByURL(url string) (string, error) {
 	ms.RLock()
 	defer ms.RUnlock()
 	for id, storedURL := range ms.store {
 		if storedURL == url {
-			return id, true
+			return id, nil
 		}
 	}
-	return "", false
+	return "", ErrURLNotFound
 }
 
 // ну, тут тоже как бы странно было бы закрывать память, но можно че-нить

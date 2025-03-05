@@ -50,7 +50,7 @@ func NewDatabase(dsn string) (*Database, error) {
 func (d *Database) Ping() error {
 	// для нул базы - вернем ошибку
 	if d == nil || d.db == nil {
-		return errors.New("database connection is nil")
+		return ErrDbConnection
 	}
 
 	return d.db.Ping()
@@ -60,53 +60,12 @@ func (d *Database) Ping() error {
 func (d *Database) Close() error {
 	// для нул базы - вернем ошибку
 	if d == nil || d.db == nil {
+		// эта ошибка специфична только для подключения к реальной базе
 		return errors.New("database connection is already closed or uninitialized")
 	}
 
 	return d.db.Close()
 }
-
-// Save - сохраняем f5, обрабатывая конфликты
-// первая версия имплементации
-// func (d *Database) Save(id, url string) error {
-// 	if d == nil || d.db == nil {
-// 		return errors.New("database connection is nil")
-// 	}
-
-// 	// используем ON CONFLICT DO NOTHING, чтобы не выкидывать исключения от PG
-// 	// хотя можно использовать пакет github.com/jackc/pgerrcode
-// 	res, err := d.db.Exec(`
-// 		INSERT INTO urls (short_id, original_url)
-// 		VALUES ($1, $2)
-// 		ON CONFLICT DO NOTHING
-// 	`, id, url)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	rowsAffected, err := res.RowsAffected()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if rowsAffected == 1 {
-// 		// конфликтов не было
-// 		return nil
-// 	}
-
-// 	// rowsAffected == 0 => значит была конфликтная ситуация
-// 	// чем именно вызван конфликт: short_id или original_url?
-// 	// Сначала проверим, есть ли в базе уже такая original_url
-// 	var existingShortID string
-// 	err = d.db.QueryRow("SELECT short_id FROM urls WHERE original_url = $1", url).Scan(&existingShortID)
-// 	if err == nil && existingShortID != "" {
-// 		// конфликт по original_url
-// 		return ErrURLConflict
-// 	}
-
-// 	// конфликт по short_id
-// 	return ErrShortIDConflict
-// }
 
 // Save - сохраняем f5, обрабатывая конфликты
 func (d *Database) Save(id, url string) error {
@@ -119,14 +78,6 @@ func (d *Database) Save(id, url string) error {
 		VALUES ($1, $2)
 	`, id, url)
 
-	// используя pqErr получается можно обернуться в switch, что проще для чтения
-	// если бы в го поддерживалось как js:
-	// switch(true) {
-	//   case val === 0: { ... }
-	//   case val === 1: { ... }
-	//   default: { ... }
-	// }
-	// можно было бы реализовать такой же свитч наверно (я не уверен)
 	if err != nil {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) {
@@ -180,31 +131,39 @@ func (d *Database) SaveBatch(urls map[string]string) error {
 }
 
 // Load - загружаеся f8
-func (d *Database) Load(id string) (string, bool) {
+func (d *Database) Load(id string) (string, error) {
 	// для нул базы - ничего не возвращаем
 	if d == nil || d.db == nil {
-		return "", false
+		return "", ErrDbConnection
 	}
 
 	var url string
 	err := d.db.QueryRow("SELECT original_url FROM urls WHERE short_id = $1", id).Scan(&url)
-	if err != nil {
-		return "", false
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrURLNotFound
 	}
-	return url, true
+	if err != nil {
+		return "", err
+	}
+
+	return url, nil
 }
 
 // FindIDByURL находит short_id по original_url
-func (d *Database) FindIDByURL(url string) (string, bool) {
+func (d *Database) FindIDByURL(url string) (string, error) {
 	if d == nil || d.db == nil {
-		return "", false
+		return "", ErrDbConnection
 	}
 
 	var shortID string
 	err := d.db.QueryRow("SELECT short_id FROM urls WHERE original_url = $1", url).Scan(&shortID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrURLNotFound
+	}
 	if err != nil {
-		return "", false
+		return "", err
 	}
 
-	return shortID, true
+	return shortID, nil
 }

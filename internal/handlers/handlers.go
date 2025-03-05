@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -42,13 +43,23 @@ func HandleShorten(w http.ResponseWriter, r *http.Request, shortener *service.UR
 		return
 	}
 
-	id, conflict := shortener.Shorten(urlStr)
+	id, shortErr := shortener.Shorten(urlStr)
 	shortURL := baseURL + "/" + id
 
-	if conflict {
-		// url есть в бд - отдаем 409 Conflict
-		w.WriteHeader(http.StatusConflict)
-		w.Write([]byte(shortURL))
+	if shortErr != nil {
+		// конфликт - возвращаем 409
+		if errors.Is(shortErr, storage.ErrShortIDConflict) {
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(shortURL))
+			return
+		}
+		// нет - возвращаем 404
+		if errors.Is(shortErr, storage.ErrURLNotFound) {
+			http.Error(w, "URL not found", http.StatusNotFound)
+			return
+		}
+		// 400
+		http.Error(w, "URL problem", http.StatusBadRequest)
 		return
 	}
 
@@ -70,16 +81,26 @@ func HandleShortenJSON(w http.ResponseWriter, r *http.Request, shortener *servic
 		return
 	}
 
-	id, conflict := shortener.Shorten(req.URL)
+	id, shortErr := shortener.Shorten(req.URL)
 	shortURL := baseURL + "/" + id
 
 	resp := URLResponse{Result: shortURL}
 
-	if conflict {
-		// url есть в бд - отдаем 409 Conflict
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		json.NewEncoder(w).Encode(resp)
+	if shortErr != nil {
+		// конфликт - возвращаем 409
+		if errors.Is(shortErr, storage.ErrShortIDConflict) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		// нет - возвращаем 404
+		if errors.Is(shortErr, storage.ErrURLNotFound) {
+			http.Error(w, "URL not found", http.StatusNotFound)
+			return
+		}
+		// 400
+		http.Error(w, "URL problem", http.StatusBadRequest)
 		return
 	}
 
@@ -144,11 +165,19 @@ func HandleShortenBatch(w http.ResponseWriter, r *http.Request, shortener *servi
 // HandleRedirect - обработчик для GET /{id}
 func HandleRedirect(w http.ResponseWriter, r *http.Request, shortener *service.URLShortener) {
 	id := chi.URLParam(r, "id")
-	if originalURL, ok := shortener.Retrieve(id); ok {
-		http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
-	} else {
-		http.Error(w, "URL not found", http.StatusBadRequest)
+	originalURL, err := shortener.Retrieve(id)
+	if err != nil {
+		// нет - возвращаем 404
+		if errors.Is(err, storage.ErrURLNotFound) {
+			http.Error(w, "URL not found", http.StatusNotFound)
+			return
+		}
+		// 400
+		http.Error(w, "URL problem", http.StatusBadRequest)
+		return
 	}
+
+	http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
 }
 
 // HandlePing - обработчик для GET /ping

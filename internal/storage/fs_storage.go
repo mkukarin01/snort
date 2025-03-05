@@ -63,11 +63,16 @@ func (fs *FileStorage) SaveBatch(urls map[string]string) error {
 	return fs.save()
 }
 
-func (fs *FileStorage) Load(id string) (string, bool) {
+func (fs *FileStorage) Load(id string) (string, error) {
 	fs.RLock()
 	defer fs.RUnlock()
 	url, exists := fs.store[id]
-	return url, exists
+
+	if !exists {
+		return "", ErrURLNotFound
+	}
+
+	return url, nil
 }
 
 func (fs *FileStorage) save() error {
@@ -114,15 +119,15 @@ func (fs *FileStorage) load() error {
 }
 
 // FindIDByURL находим short_id по original_url
-func (fs *FileStorage) FindIDByURL(url string) (string, bool) {
+func (fs *FileStorage) FindIDByURL(url string) (string, error) {
 	fs.RLock()
 	defer fs.RUnlock()
 	for id, storedURL := range fs.store {
 		if storedURL == url {
-			return id, true
+			return id, nil
 		}
 	}
-	return "", false
+	return "", ErrURLNotFound
 }
 
 // фс можно оставить без пинга и закрытия

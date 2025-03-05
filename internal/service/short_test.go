@@ -9,28 +9,28 @@ import (
 
 // проверил что сократилось и получилось тоже самое
 func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
-	storage := storage.NewMemoryStorage()
-	shortener := NewURLShortener(storage)
+	store := storage.NewMemoryStorage()
+	shortener := NewURLShortener(store)
 
 	originalURL := "https://ya.ru"
 	id, _ := shortener.Shorten(originalURL)
 
 	retrievedURL, ok := shortener.Retrieve(id)
-	assert.True(t, ok)
+	assert.Nil(t, ok)
 	assert.Equal(t, originalURL, retrievedURL)
 
 	nextID, conflict := shortener.Shorten(originalURL)
-	assert.True(t, conflict)
+	assert.ErrorIs(t, conflict, storage.ErrURLConflict)
 	assert.Equal(t, id, nextID)
 }
 
 // проверил что получение несуществующего вернет ошибку
 func TestURLShortener_RetrieveNonExistent(t *testing.T) {
-	storage := storage.NewMemoryStorage()
-	shortener := NewURLShortener(storage)
+	store := storage.NewMemoryStorage()
+	shortener := NewURLShortener(store)
 
 	_, ok := shortener.Retrieve("nonexistent")
-	assert.False(t, ok)
+	assert.ErrorIs(t, ok, storage.ErrURLNotFound)
 }
 
 func TestURLShortener_ShortenBatchAndRetrieve(t *testing.T) {
@@ -51,7 +51,7 @@ func TestURLShortener_ShortenBatchAndRetrieve(t *testing.T) {
 		assert.True(t, exists, "The correlation ID should exist in shortened URLs")
 
 		retrievedURL, ok := shortener.Retrieve(shortID)
-		assert.True(t, ok, "Shortened ID should be retrievable")
+		assert.Nil(t, ok, "Shortened ID should be retrievable")
 		assert.Equal(t, originalURL, retrievedURL, "Retrieved URL should match original URL")
 	}
 }
