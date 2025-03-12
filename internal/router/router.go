@@ -10,11 +10,12 @@ import (
 	"github.com/mkukarin01/snort/internal/logger"
 	InternalMiddleware "github.com/mkukarin01/snort/internal/middleware"
 	"github.com/mkukarin01/snort/internal/service"
+	"github.com/mkukarin01/snort/internal/storage"
 )
 
 // NewRouter - создаем роутер chi
-func NewRouter(cfg *config.Config) http.Handler {
-	shortener := service.NewURLShortener(cfg.FileStoragePath)
+func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
+	shortener := service.NewURLShortener(db)
 	r := chi.NewRouter()
 
 	// инициализуем собственный логгер синглтончик => мидлварь
@@ -27,12 +28,20 @@ func NewRouter(cfg *config.Config) http.Handler {
 	// есть какие-то встроенные мидлвари, позовем их
 	r.Use(ChiMiddleware.Recoverer)
 
+	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+		handlers.HandlePing(w, r, db)
+	})
+
 	r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandleShorten(w, r, shortener, cfg.BaseURL)
 	})
 
 	r.Post("/api/shorten", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandleShortenJSON(w, r, shortener, cfg.BaseURL)
+	})
+
+	r.Post("/api/shorten/batch", func(w http.ResponseWriter, r *http.Request) {
+		handlers.HandleShortenBatch(w, r, shortener, cfg.BaseURL)
 	})
 
 	if cfg.BasePath == "" {
