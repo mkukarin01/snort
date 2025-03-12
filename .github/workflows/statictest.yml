@@ -21,7 +21,8 @@ jobs:
           latest: true
           fileName: statictest
           out-file-path: .tools
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.TEMP_GITHUB_KEY }}
 
       - name: Setup autotest binary
         run: |
