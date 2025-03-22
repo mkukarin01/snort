@@ -14,7 +14,7 @@ import (
 )
 
 // NewRouter - создаем роутер chi
-func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
+func NewRouter(cfg *config.Config, db storage.Storager, deleter *service.URLDeleter) http.Handler {
 	shortener := service.NewURLShortener(db)
 	r := chi.NewRouter()
 
@@ -28,22 +28,13 @@ func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
 	// есть какие-то встроенные мидлвари, позовем их
 	r.Use(ChiMiddleware.Recoverer)
 
+	// публичные маршруты
+	// ping
 	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandlePing(w, r, db)
 	})
 
-	r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-		handlers.HandleShorten(w, r, shortener, cfg.BaseURL)
-	})
-
-	r.Post("/api/shorten", func(w http.ResponseWriter, r *http.Request) {
-		handlers.HandleShortenJSON(w, r, shortener, cfg.BaseURL)
-	})
-
-	r.Post("/api/shorten/batch", func(w http.ResponseWriter, r *http.Request) {
-		handlers.HandleShortenBatch(w, r, shortener, cfg.BaseURL)
-	})
-
+	// редирект
 	if cfg.BasePath == "" {
 		r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
 			handlers.HandleRedirect(w, r, shortener)
@@ -55,6 +46,33 @@ func NewRouter(cfg *config.Config, db storage.Storager) http.Handler {
 			})
 		})
 	}
+
+	// приватные маршруты
+	r.Group(func(private chi.Router) {
+		// мидлварь аутентификации
+		private.Use(InternalMiddleware.UserAuthMiddleware(cfg))
+
+		// короткие ссылки
+		private.Post("/", func(w http.ResponseWriter, r *http.Request) {
+			handlers.HandleShorten(w, r, shortener, cfg.BaseURL)
+		})
+		private.Post("/api/shorten", func(w http.ResponseWriter, r *http.Request) {
+			handlers.HandleShortenJSON(w, r, shortener, cfg.BaseURL)
+		})
+		private.Post("/api/shorten/batch", func(w http.ResponseWriter, r *http.Request) {
+			handlers.HandleShortenBatch(w, r, shortener, cfg.BaseURL)
+		})
+
+		// возвращаем все ссылки пользователя
+		private.Get("/api/user/urls", func(w http.ResponseWriter, r *http.Request) {
+			handlers.HandleUserURLs(w, r, shortener, cfg.BaseURL)
+		})
+
+		// удаляем ссылки пользователя (асинхронный процесс)
+		private.Delete("/api/user/urls", func(w http.ResponseWriter, r *http.Request) {
+			handlers.HandleDeleteUserURLs(w, r, deleter)
+		})
+	})
 
 	return r
 }

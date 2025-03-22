@@ -62,6 +62,21 @@ func (mr *MockStoragerMockRecorder) FindIDByURL(url interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindIDByURL", reflect.TypeOf((*MockStorager)(nil).FindIDByURL), url)
 }
 
+// GetUserURLs mocks base method.
+func (m *MockStorager) GetUserURLs(userID string) ([]UserURL, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserURLs", userID)
+	ret0, _ := ret[0].([]UserURL)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserURLs indicates an expected call of GetUserURLs.
+func (mr *MockStoragerMockRecorder) GetUserURLs(userID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserURLs", reflect.TypeOf((*MockStorager)(nil).GetUserURLs), userID)
+}
+
 // Load mocks base method.
 func (m *MockStorager) Load(id string) (string, error) {
 	m.ctrl.T.Helper()
@@ -75,6 +90,20 @@ func (m *MockStorager) Load(id string) (string, error) {
 func (mr *MockStoragerMockRecorder) Load(id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockStorager)(nil).Load), id)
+}
+
+// MarkUserURLsDeleted mocks base method.
+func (m *MockStorager) MarkUserURLsDeleted(userID string, shortIDs []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkUserURLsDeleted", userID, shortIDs)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkUserURLsDeleted indicates an expected call of MarkUserURLsDeleted.
+func (mr *MockStoragerMockRecorder) MarkUserURLsDeleted(userID, shortIDs interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkUserURLsDeleted", reflect.TypeOf((*MockStorager)(nil).MarkUserURLsDeleted), userID, shortIDs)
 }
 
 // Ping mocks base method.
@@ -117,4 +146,32 @@ func (m *MockStorager) SaveBatch(urls map[string]string) error {
 func (mr *MockStoragerMockRecorder) SaveBatch(urls interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveBatch", reflect.TypeOf((*MockStorager)(nil).SaveBatch), urls)
+}
+
+// SaveBatchUserURLs mocks base method.
+func (m *MockStorager) SaveBatchUserURLs(userID string, batch map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveBatchUserURLs", userID, batch)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveBatchUserURLs indicates an expected call of SaveBatchUserURLs.
+func (mr *MockStoragerMockRecorder) SaveBatchUserURLs(userID, batch interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveBatchUserURLs", reflect.TypeOf((*MockStorager)(nil).SaveBatchUserURLs), userID, batch)
+}
+
+// SaveUserURL mocks base method.
+func (m *MockStorager) SaveUserURL(userID, shortID, originalURL string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveUserURL", userID, shortID, originalURL)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveUserURL indicates an expected call of SaveUserURL.
+func (mr *MockStoragerMockRecorder) SaveUserURL(userID, shortID, originalURL interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveUserURL", reflect.TypeOf((*MockStorager)(nil).SaveUserURL), userID, shortID, originalURL)
 }

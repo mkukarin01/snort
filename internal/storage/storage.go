@@ -16,16 +16,34 @@ var (
 	ErrShortIDConflict = errors.New("short_id conflict")
 	// ErrURLNotFound - нет такой строки в хранилище
 	ErrURLNotFound = errors.New("url not found")
+	// ErrURLDeleted - is_deleted=true
+	ErrURLDeleted = errors.New("url is deleted")
 )
+
+// UserURL - для возврата набора ссылок конкретного пользователя
+type UserURL struct {
+	ShortURL    string
+	OriginalURL string
+}
 
 // Storager - интерфейс для работы с бд или другим хранилищем
 type Storager interface {
 	Ping() error
 	Close() error
+
+	// Старые методы (без userID)
 	Save(id, url string) error
 	SaveBatch(urls map[string]string) error
 	Load(id string) (string, error)
 	FindIDByURL(url string) (string, error)
+
+	// Новые методы для работы с userID
+	SaveUserURL(userID, shortID, originalURL string) error
+	SaveBatchUserURLs(userID string, batch map[string]string) error
+	GetUserURLs(userID string) ([]UserURL, error)
+
+	// Новый метод для проставления флага удаления
+	MarkUserURLsDeleted(userID string, shortIDs []string) error
 }
 
 // NewStorage определяет используемое хранилище

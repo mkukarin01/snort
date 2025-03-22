@@ -6,6 +6,7 @@ import (
 
 	"github.com/mkukarin01/snort/internal/config"
 	"github.com/mkukarin01/snort/internal/router"
+	"github.com/mkukarin01/snort/internal/service"
 	"github.com/mkukarin01/snort/internal/storage"
 )
 
@@ -22,7 +23,12 @@ func Run() {
 	}
 	defer store.Close()
 
-	r := router.NewRouter(cfg, store)
+	// fanIn
+	deleter := service.NewURLDeleter(store)
+	// воркер-горутина
+	go deleter.Run()
+
+	r := router.NewRouter(cfg, store, deleter)
 	log.Printf("Starting server on http://%s\n", cfg.Address)
 	log.Fatal(http.ListenAndServe(cfg.Address, r))
 }

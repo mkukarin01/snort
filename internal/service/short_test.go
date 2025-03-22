@@ -11,15 +11,16 @@ import (
 func TestURLShortener_ShortenAndRetrieve(t *testing.T) {
 	store := storage.NewMemoryStorage()
 	shortener := NewURLShortener(store)
+	uid := "foo"
 
 	originalURL := "https://ya.ru"
-	id, _ := shortener.Shorten(originalURL)
+	id, _ := shortener.Shorten(originalURL, uid)
 
-	retrievedURL, ok := shortener.Retrieve(id)
-	assert.Nil(t, ok)
+	retrievedURL, foundErr := shortener.Retrieve(id)
+	assert.Nil(t, foundErr)
 	assert.Equal(t, originalURL, retrievedURL)
 
-	nextID, conflict := shortener.Shorten(originalURL)
+	nextID, conflict := shortener.Shorten(originalURL, uid)
 	assert.ErrorIs(t, conflict, storage.ErrURLConflict)
 	assert.Equal(t, id, nextID)
 }
@@ -29,20 +30,21 @@ func TestURLShortener_RetrieveNonExistent(t *testing.T) {
 	store := storage.NewMemoryStorage()
 	shortener := NewURLShortener(store)
 
-	_, ok := shortener.Retrieve("nonexistent")
-	assert.ErrorIs(t, ok, storage.ErrURLNotFound)
+	_, foundErr := shortener.Retrieve("nonexistent")
+	assert.ErrorIs(t, foundErr, storage.ErrURLNotFound)
 }
 
 func TestURLShortener_ShortenBatchAndRetrieve(t *testing.T) {
-	storage := storage.NewMemoryStorage()
-	shortener := NewURLShortener(storage)
+	store := storage.NewMemoryStorage()
+	shortener := NewURLShortener(store)
+	uid := "bar"
 
 	urls := map[string]string{
 		"1": "http://ya.ru",
 		"2": "http://github.com",
 	}
 
-	shortened := shortener.ShortenBatch(urls)
+	shortened := shortener.ShortenBatch(urls, uid)
 
 	assert.Len(t, shortened, len(urls))
 
@@ -50,8 +52,22 @@ func TestURLShortener_ShortenBatchAndRetrieve(t *testing.T) {
 		shortID, exists := shortened[correlationID]
 		assert.True(t, exists, "The correlation ID should exist in shortened URLs")
 
-		retrievedURL, ok := shortener.Retrieve(shortID)
-		assert.Nil(t, ok, "Shortened ID should be retrievable")
+		retrievedURL, foundErr := shortener.Retrieve(shortID)
+		assert.Nil(t, foundErr, "Shortened ID should be retrievable")
 		assert.Equal(t, originalURL, retrievedURL, "Retrieved URL should match original URL")
 	}
+}
+
+func TestURLShortener_RetrieveUserURLs(t *testing.T) {
+	storage := storage.NewMemoryStorage()
+	shortener := NewURLShortener(storage)
+	uid := "baz"
+
+	originalURL := "https://ya.ru"
+	// id, _ := shortener.Shorten(originalURL, uid)
+	shortener.Shorten(originalURL, uid)
+
+	urls, _ := shortener.UserURLs(uid, "http://bar.foo")
+
+	assert.Len(t, urls, 1)
 }

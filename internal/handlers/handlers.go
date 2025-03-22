@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/mkukarin01/snort/internal/middleware"
 	"github.com/mkukarin01/snort/internal/service"
 	"github.com/mkukarin01/snort/internal/storage"
 )
@@ -30,7 +31,6 @@ func HandleShorten(w http.ResponseWriter, r *http.Request, shortener *service.UR
 		return
 	}
 
-	// создам переменную, чтобы потом к ней обращаться несколько раз
 	urlStr := string(bodyBytes)
 	parsedURL, err := url.ParseRequestURI(urlStr)
 	if err != nil {
@@ -43,7 +43,10 @@ func HandleShorten(w http.ResponseWriter, r *http.Request, shortener *service.UR
 		return
 	}
 
-	id, shortErr := shortener.Shorten(urlStr)
+	// достанем userID из контекста, если он там есть
+	userID := middleware.GetUserIDFromContext(r.Context())
+
+	id, shortErr := shortener.Shorten(urlStr, userID)
 	shortURL := baseURL + "/" + id
 
 	if shortErr != nil {
@@ -81,13 +84,14 @@ func HandleShortenJSON(w http.ResponseWriter, r *http.Request, shortener *servic
 		return
 	}
 
-	id, shortErr := shortener.Shorten(req.URL)
+	userID := middleware.GetUserIDFromContext(r.Context())
+
+	id, shortErr := shortener.Shorten(req.URL, userID)
 	shortURL := baseURL + "/" + id
 
 	resp := URLResponse{Result: shortURL}
 
 	w.Header().Set("Content-Type", "application/json")
-
 	if shortErr != nil {
 		// конфликт - возвращаем 409
 		if errors.Is(shortErr, storage.ErrURLConflict) {
@@ -149,7 +153,8 @@ func HandleShortenBatch(w http.ResponseWriter, r *http.Request, shortener *servi
 		urls[item.CorrelationID] = item.OriginalURL
 	}
 
-	shortened := shortener.ShortenBatch(urls)
+	userID := middleware.GetUserIDFromContext(r.Context())
+	shortened := shortener.ShortenBatch(urls, userID)
 
 	var res []BatchResponse
 	for correlationID, shortID := range shortened {
@@ -169,12 +174,17 @@ func HandleRedirect(w http.ResponseWriter, r *http.Request, shortener *service.U
 	id := chi.URLParam(r, "id")
 	originalURL, err := shortener.Retrieve(id)
 	if err != nil {
+		// Если получаем ошибку "удалено", возвращаем 410
+		if errors.Is(err, storage.ErrURLDeleted) {
+			http.Error(w, "URL is deleted", http.StatusGone)
+			return
+		}
 		// нет - возвращаем 404
 		if errors.Is(err, storage.ErrURLNotFound) {
 			http.Error(w, "URL not found", http.StatusNotFound)
 			return
 		}
-		// 400
+		// Если "не найдено" или любая другая - 400
 		http.Error(w, "URL problem", http.StatusBadRequest)
 		return
 	}
@@ -198,4 +208,47 @@ func HandlePing(w http.ResponseWriter, r *http.Request, db storage.Storager) {
 
 	// 200
 	w.WriteHeader(http.StatusOK)
+}
+
+// HandleUserURLs - обработчик для GET /api/user/urls
+func HandleUserURLs(w http.ResponseWriter, r *http.Request, shortener *service.URLShortener, baseURL string) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userURLs, err := shortener.UserURLs(userID, baseURL)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	if len(userURLs) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(userURLs)
+}
+
+// HandleDeleteUserURLs - обработчик для DELETE /api/user/urls
+func HandleDeleteUserURLs(w http.ResponseWriter, r *http.Request, deleter *service.URLDeleter) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var shortIDs []string
+	if err := json.NewDecoder(r.Body).Decode(&shortIDs); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Вызываем асинхронное удаление (fanIn)
+	deleter.Submit(userID, shortIDs)
+
+	// Возвращаем 202 Accepted
+	w.WriteHeader(http.StatusAccepted)
 }
