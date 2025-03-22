@@ -69,9 +69,7 @@ func (d *URLDeleter) Run() {
 
 			// при пороге - надо провести сброс
 			var count int
-			for _, ids := range userBatch {
-				count += len(ids)
-			}
+			count += len(job.shortIDs)
 			if count >= d.bufSize {
 				flushFunc()
 			}
